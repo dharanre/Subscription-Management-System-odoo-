@@ -1,0 +1,54 @@
+:root {
+  --font: 'Figtree Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Consolas, monospace;
+
+  /* Neutrals - warm paper, cool ink */
+  --ink-900: #14202b;
+  --ink-800: #1f2e3b;
+  --ink-700: #33434f;
+  --ink-600: #4a5a67;
+  --ink-500: #5f6f7c;
+  --ink-300: #a3afb9;
+  --bg: #f6f4ef;
+  --surface: #ffffff;
+  --surface-sunk: #faf9f5;
+  --line: #e6e2d9;
+  --line-strong: #d4cfc2;
+
+  /* Brand */
+  --brand-800: #07493f;
+  --brand-700: #0a6355;
+  --brand-600: #0e7c66;
+  --brand-500: #14957b;
+  --brand-100: #d3ece5;
+  --brand-50: #eaf6f2;
+  --accent-500: #f2a93b;
+  --accent-100: #fdf0d8;
+
+  /* Status tones: text / tint / edge (all text colours are >= 4.5:1 on their tint) */
+  --ok: #166b3f;
+  --ok-bg: #e3f4ea;
+  --ok-line: #b7e0c7;
+  --warn: #8a5200;
+  --warn-bg: #fdf0d8;
+  --warn-line: #f2d49a;
+  --bad: #a8261a;
+  --bad-bg: #fcebe8;
+  --bad-line: #f3c2bb;
+  --info: #1b5a9e;
+  --info-bg: #e6f0fb;
+  --info-line: #bcd5f1;
+  --mute: #4a5a67;
+  --mute-bg: #eceae3;
+  --mute-line: #d9d5c9;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --shadow-sm: 0 1px 2px rgb(20 32 43 / 6%);
+  --shadow-md: 0 6px 20px rgb(20 32 43 / 10%);
+  --shadow-lg: 0 18px 48px rgb(20 32 43 / 22%);
+  --focus: 0 0 0 3px rgb(20 149 123 / 35%);
+
+  --sidebar-w: 248px;
+}
