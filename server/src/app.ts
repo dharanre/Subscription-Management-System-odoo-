@@ -14,6 +14,7 @@ import { devRouter } from './routes/dev.js';
 import { discountsRouter } from './routes/discounts.js';
 import { invoicesRouter } from './routes/invoices.js';
 import { paymentTermsRouter } from './routes/paymentTerms.js';
+import { paymentsRouter, receivablesRouter } from './routes/payments.js';
 import { plansRouter } from './routes/plans.js';
 import { pricingRouter } from './routes/pricing.js';
 import { productsRouter } from './routes/products.js';
@@ -58,6 +59,8 @@ export function createApp({ config, db, mailer }: AppDeps): Express {
   api.use('/subscriptions', requireAuth, subscriptionsRouter(db));
   api.use('/invoices', requireAuth, invoicesRouter(db, config, mailer));
   api.use('/billing', requireAuth, billingRouter(db));
+  api.use('/payments', requireAuth, paymentsRouter(db));
+  api.use('/receivables', requireAuth, receivablesRouter(db));
   if (config.devMailbox && mailer instanceof DevMailbox) api.use('/dev', devRouter(mailer));
 
   api.use((_req, _res, next) => next(notFound('Endpoint')));

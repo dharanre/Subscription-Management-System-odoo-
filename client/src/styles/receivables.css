@@ -1,0 +1,68 @@
+/* ---------- Receivables aging chart ---------- */
+.aging {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.aging li {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) minmax(150px, auto);
+  gap: 14px;
+  align-items: center;
+}
+.aging__label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+.aging__track {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--mute-bg);
+  overflow: hidden;
+}
+.aging__bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 999px;
+  background: var(--brand-500);
+}
+.aging li[data-bucket='d1_30'] .aging__bar {
+  background: #e0a31d;
+}
+.aging li[data-bucket='d31_60'] .aging__bar {
+  background: #d9792b;
+}
+.aging li[data-bucket='d61_90'] .aging__bar {
+  background: #c9482f;
+}
+.aging li[data-bucket='d90_plus'] .aging__bar {
+  background: var(--bad);
+}
+.aging__value {
+  text-align: right;
+  font-weight: 650;
+}
+@media (max-width: 640px) {
+  /* One column on a phone, so the amount and invoice count are never squeezed off the edge. */
+  .aging li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .aging__value {
+    text-align: left;
+  }
+}
+
+/* ---------- Small helpers for the payments list ---------- */
+.summary-line {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-sunk);
+}
+.date-filter .input {
+  width: 160px;
+}

@@ -15,7 +15,8 @@ import { PageHeader, Pagination } from '../ui/Layout';
 import { QueryStates } from '../ui/Query';
 
 const PAGE_SIZE = 10;
-type Tab = '' | 'draft' | 'confirmed' | 'overdue' | 'paid' | 'cancelled';
+type Tab = '' | 'draft' | 'outstanding' | 'overdue' | 'paid' | 'cancelled';
+const TABS: Tab[] = ['', 'draft', 'outstanding', 'overdue', 'paid', 'cancelled'];
 
 export function InvoicesPage() {
   const { user } = useAuth();
@@ -25,7 +26,8 @@ export function InvoicesPage() {
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const subscriptionId = isStaff ? params.get('subscriptionId') : null;
-  const [tab, setTab] = useState<Tab>('');
+  const initial = params.get('status') as Tab | null;
+  const [tab, setTab] = useState<Tab>(initial && TABS.includes(initial) ? initial : '');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const search = useDebounced(q.trim());
@@ -40,7 +42,7 @@ export function InvoicesPage() {
   const tabs: { value: Tab; label: string; count?: number }[] = [
     { value: '', label: 'All', count: counts.data?.total },
     ...(isStaff ? [{ value: 'draft' as Tab, label: 'Draft', count: c?.draft }] : []),
-    { value: 'confirmed', label: 'Confirmed', count: c?.confirmed },
+    { value: 'outstanding', label: 'Outstanding', count: c?.outstanding },
     { value: 'overdue', label: 'Overdue', count: c?.overdue },
     { value: 'paid', label: 'Paid', count: c?.paid },
     ...(isStaff ? [{ value: 'cancelled' as Tab, label: 'Cancelled', count: c?.cancelled }] : []),

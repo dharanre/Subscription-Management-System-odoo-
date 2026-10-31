@@ -47,6 +47,12 @@
   }
 }
 
+@media (max-width: 720px) {
+  .table .cell-actions {
+    white-space: normal;
+  }
+}
+
 /* ---------- Print page ---------- */
 .print-page {
   max-width: 880px;

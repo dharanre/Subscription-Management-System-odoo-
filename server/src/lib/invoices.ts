@@ -4,6 +4,7 @@ import { diffDays } from './dates.js';
 import { HttpError } from './http.js';
 import type { Mailer } from './mailer.js';
 import { bpToPercent, fromMinor, today } from './money.js';
+import { paymentsOfInvoice, presentPayment } from './paymentRows.js';
 
 /** Invoice rules in one place: the billing run, the API and the seed all use these, so they cannot disagree. */
 
@@ -134,13 +135,17 @@ export async function sendInvoice(db: DB, mailer: Mailer, config: Config, id: nu
 
   const money = new Intl.NumberFormat(config.locale, { style: 'currency', currency: config.currency });
   const owing = balanceMinor(inv);
+  const late = isOverdue(inv, today());
+  const daysLate = late ? diffDays(inv.due_date, today()) : 0;
   try {
     await mailer.send({
       to: inv.customer_email,
-      subject: `Invoice ${inv.number} from Brightloop`,
+      subject: late ? `Reminder: invoice ${inv.number} is overdue` : `Invoice ${inv.number} from Brightloop`,
       text:
         `Hi ${inv.customer_name},\n\n` +
-        `Invoice ${inv.number} for ${inv.plan_name} (${inv.period_start} to ${inv.period_end}) is ready.\n` +
+        (late
+          ? `This is a reminder that invoice ${inv.number} for ${inv.plan_name} was due on ${inv.due_date} and is ${daysLate} day${daysLate === 1 ? '' : 's'} overdue.\n`
+          : `Invoice ${inv.number} for ${inv.plan_name} (${inv.period_start} to ${inv.period_end}) is ready.\n`) +
         `Total: ${money.format(fromMinor(inv.total_minor))}\n` +
         (owing > 0 ? `Amount due: ${money.format(fromMinor(owing))} by ${inv.due_date}\n` : 'Nothing is owing on this invoice.\n') +
         `\nView it here: ${config.appUrl}/invoices/${inv.id}\n`,
@@ -152,7 +157,7 @@ export async function sendInvoice(db: DB, mailer: Mailer, config: Config, id: nu
 
   return transaction(db, () => {
     run(db, `UPDATE invoices SET sent_count = sent_count + 1, sent_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`, id);
-    logInvoiceEvent(db, id, 'send', inv.status, inv.status, actorId, `Emailed to ${inv.customer_email}`);
+    logInvoiceEvent(db, id, 'send', inv.status, inv.status, actorId, `${late ? 'Overdue reminder emailed' : 'Emailed'} to ${inv.customer_email}`);
     return getInvoice(db, id)!;
   });
 }
@@ -224,6 +229,9 @@ export function presentInvoice(db: DB, r: InvoiceRow, viewer: 'staff' | 'custome
     cancelReason: r.cancel_reason,
     sentCount: r.sent_count,
     events: events.map((e) => ({ id: e.id, action: e.action, fromStatus: e.from_status, toStatus: e.to_status, actor: e.actor_name, note: e.note, at: e.at })),
+    // Customers see money received, but not voided entries or who recorded them.
+    payments: paymentsOfInvoice(db, r.id, viewer === 'staff').map((p) => presentPayment(p)),
+    canRecordPayment: viewer === 'staff' && r.status === 'confirmed' && balanceMinor(r) > 0,
     actions: viewer === 'staff' ? availableInvoiceActions(r) : [],
   };
 }
