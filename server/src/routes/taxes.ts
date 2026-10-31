@@ -2,15 +2,15 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { type DB, all, get, isUniqueViolation, run, transaction } from '../db.js';
 import { type TaxRow, toTax } from '../lib/catalog.js';
-import { HttpError, conflict, notFound, pageOf, pagingSchema, parse, text } from '../lib/http.js';
+import { HttpError, conflict, notFound, pageOf, pagingSchema, parse, text, kind } from '../lib/http.js';
 import { percentSchema } from '../lib/money.js';
 import { requireRole } from '../middleware/auth.js';
 
 const taxFields = {
   name: z.string(text('Name')).trim().min(1, 'Name is required').max(80, 'Name is too long'),
   ratePercent: percentSchema('Tax rate'),
-  isDefault: z.boolean({ invalid_type_error: 'isDefault must be true or false' }),
-  isActive: z.boolean({ invalid_type_error: 'isActive must be true or false' }),
+  isDefault: z.boolean(kind('isDefault must be true or false')),
+  isActive: z.boolean(kind('isActive must be true or false')),
 };
 const createSchema = z.object({
   name: taxFields.name,

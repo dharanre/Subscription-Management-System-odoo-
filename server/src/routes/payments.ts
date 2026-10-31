@@ -11,7 +11,7 @@ import { requireRole } from '../middleware/auth.js';
 /** The body for recording a payment. Shared with the invoice route that records one. */
 export const recordPaymentSchema = z.object({
   amount: moneySchema('Amount').refine((minor) => minor > 0, 'Amount must be greater than zero'),
-  method: z.enum(METHODS, { errorMap: () => ({ message: `Method must be one of: ${METHODS.join(', ')}` }) }),
+  method: z.enum(METHODS, { error: `Method must be one of: ${METHODS.join(', ')}` }),
   paidOn: dateSchema('Payment date').optional(),
   reference: z.string(text('Reference')).trim().max(100, 'Reference is too long').nullable().optional(),
   note: z.string(text('Note')).trim().max(500, 'Note is too long').nullable().optional(),

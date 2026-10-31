@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { Config } from '../config.js';
 import { type DB, type Param, all, get, isUniqueViolation, run, transaction } from '../db.js';
-import { HttpError, conflict, likePattern, notFound, pageOf, pagingSchema, parse } from '../lib/http.js';
+import { HttpError, conflict, likePattern, notFound, pageOf, pagingSchema, parse, kind } from '../lib/http.js';
 import { hashPassword } from '../lib/password.js';
 import { requireRole } from '../middleware/auth.js';
 import { emailSchema, nameSchema, passwordSchema } from './auth.js';
@@ -13,7 +13,7 @@ const listSchema = pagingSchema.extend({
 });
 const staffSchema = z.object({ name: nameSchema, email: emailSchema, password: passwordSchema });
 const statusSchema = z.object({
-  isActive: z.boolean({ required_error: 'isActive is required', invalid_type_error: 'isActive must be true or false' }),
+  isActive: z.boolean(kind('isActive must be true or false', 'isActive is required')),
 });
 
 interface UserRow {

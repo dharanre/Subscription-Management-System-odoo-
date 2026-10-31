@@ -25,7 +25,7 @@ export const emailSchema = z
 export const passwordSchema = z.string(text('Password')).superRefine((value, ctx) => {
   const problems = passwordProblems(value);
   if (problems.length) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Password needs: ${problems.join(', ').toLowerCase()}` });
+    ctx.addIssue({ code: 'custom', message: `Password needs: ${problems.join(', ').toLowerCase()}` });
   }
 });
 

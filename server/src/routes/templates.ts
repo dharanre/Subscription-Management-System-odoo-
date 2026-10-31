@@ -2,24 +2,24 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { type DB, type Param, all, get, isUniqueViolation, run, transaction } from '../db.js';
 import { type PlanRow, buildLines } from '../lib/catalog.js';
-import { conflict, invalidField, likePattern, notFound, pageOf, pagingSchema, parse, text } from '../lib/http.js';
+import { conflict, invalidField, likePattern, notFound, pageOf, pagingSchema, parse, text, kind } from '../lib/http.js';
 import { fromMinor } from '../lib/money.js';
 import { requireRole } from '../middleware/auth.js';
 
 const lineSchema = z.object({
-  productId: z.number({ required_error: 'Choose a product', invalid_type_error: 'Choose a product' }).int().positive('Choose a product'),
-  variantId: z.number({ invalid_type_error: 'Choose a valid option' }).int().positive().nullable().optional(),
-  quantity: z.number({ required_error: 'Quantity is required', invalid_type_error: 'Quantity must be a number' }).int('Quantity must be a whole number').min(1, 'Quantity must be at least 1').max(100_000, 'Quantity is too large'),
+  productId: z.number(kind('Choose a product', 'Choose a product')).int().positive('Choose a product'),
+  variantId: z.number(kind('Choose a valid option')).int().positive().nullable().optional(),
+  quantity: z.number(kind('Quantity must be a number', 'Quantity is required')).int('Quantity must be a whole number').min(1, 'Quantity must be at least 1').max(100_000, 'Quantity is too large'),
 });
 
 const fields = {
   name: z.string(text('Name')).trim().min(1, 'Name is required').max(120, 'Name is too long'),
-  planId: z.number({ required_error: 'Choose a plan', invalid_type_error: 'Choose a plan' }).int().positive('Choose a plan'),
-  validityDays: z.number({ required_error: 'Validity is required', invalid_type_error: 'Validity must be a number' }).int('Validity must be a whole number of days').min(1, 'Validity must be at least 1 day').max(365, 'Validity cannot exceed 365 days'),
-  paymentTermsId: z.number({ invalid_type_error: 'Choose payment terms' }).int().positive().nullable(),
+  planId: z.number(kind('Choose a plan', 'Choose a plan')).int().positive('Choose a plan'),
+  validityDays: z.number(kind('Validity must be a number', 'Validity is required')).int('Validity must be a whole number of days').min(1, 'Validity must be at least 1 day').max(365, 'Validity cannot exceed 365 days'),
+  paymentTermsId: z.number(kind('Choose payment terms')).int().positive().nullable(),
   notes: z.string(text('Notes')).trim().max(2000, 'Notes are too long').nullable(),
   lines: z.array(lineSchema).max(50, 'At most 50 lines'),
-  isActive: z.boolean({ invalid_type_error: 'isActive must be true or false' }),
+  isActive: z.boolean(kind('isActive must be true or false')),
 };
 // New templates are always created active, so `isActive` is only accepted on update.
 const { isActive: _templateActive, ...createFields } = fields;
