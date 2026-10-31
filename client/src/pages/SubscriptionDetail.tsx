@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../ui/Dialog';
 import { Alert, Badge, EmptyState, useToast } from '../ui/Feedback';
 import { TextAreaField } from '../ui/Field';
 import { Spinner } from '../ui/Spinner';
+import { InvoiceStatusBadge } from '../ui/InvoiceStatus';
 import { LifecycleStepper, STATUS_UI, SubStatusBadge } from '../ui/Status';
 
 const DONE: Record<SubAction, string> = {
@@ -41,6 +42,7 @@ const ACTION_LABEL: Record<string, string> = {
   cancel: 'Cancelled',
   renew: 'Renewed',
   auto_close: 'Closed automatically',
+  invoice: 'Invoiced',
 };
 
 export function SubscriptionDetailPage() {
@@ -151,6 +153,30 @@ export function SubscriptionDetailPage() {
               </div>
             )}
           </section>
+          {sub.invoices.length > 0 && (
+            <section className="card">
+              <div className="card__head">
+                <h2>Invoices</h2>
+                <Link to={`/invoices?subscriptionId=${sub.id}`} className="small">All</Link>
+              </div>
+              <div className="table-wrap">
+                <table className="table">
+                  <tbody>
+                    {sub.invoices.map((i) => (
+                      <tr key={i.id}>
+                        <td>
+                          <Link className="cell-main" to={`/invoices/${i.id}`}>{i.number}</Link>
+                          <div className="cell-sub">{fmtDate(i.periodStart)} to {fmtDate(i.periodEnd)}</div>
+                        </td>
+                        <td className="num" style={{ textAlign: 'right' }}>{money(i.total)}</td>
+                        <td><InvoiceStatusBadge status={i.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
           <section className="card">
             <div className="card__head"><h2>History</h2></div>
             <div className="card__body">
@@ -159,7 +185,7 @@ export function SubscriptionDetailPage() {
                   <li key={e.id}>
                     <div className="timeline__title">
                       {ACTION_LABEL[e.action] ?? e.action}
-                      {e.fromStatus && <span className="muted" style={{ fontWeight: 500 }}> · {STATUS_UI[e.fromStatus].label} → {STATUS_UI[e.toStatus].label}</span>}
+                      {e.fromStatus && e.fromStatus !== e.toStatus && <span className="muted" style={{ fontWeight: 500 }}> · {STATUS_UI[e.fromStatus].label} → {STATUS_UI[e.toStatus].label}</span>}
                     </div>
                     <div className="timeline__meta">{fmtDateTime(e.at)} · {e.actor?.name ?? 'Automatic'}</div>
                     {e.note && <div className="timeline__note">{e.note}</div>}

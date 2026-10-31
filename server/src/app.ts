@@ -8,9 +8,11 @@ import { HttpError, notFound } from './lib/http.js';
 import { DevMailbox, type Mailer } from './lib/mailer.js';
 import { loadSession, requireAuth, sameOriginWrites } from './middleware/auth.js';
 import { authRouter } from './routes/auth.js';
+import { billingRouter } from './routes/billing.js';
 import { customersRouter } from './routes/customers.js';
 import { devRouter } from './routes/dev.js';
 import { discountsRouter } from './routes/discounts.js';
+import { invoicesRouter } from './routes/invoices.js';
 import { paymentTermsRouter } from './routes/paymentTerms.js';
 import { plansRouter } from './routes/plans.js';
 import { pricingRouter } from './routes/pricing.js';
@@ -54,6 +56,8 @@ export function createApp({ config, db, mailer }: AppDeps): Express {
   api.use('/payment-terms', requireAuth, paymentTermsRouter(db));
   api.use('/quotation-templates', requireAuth, templatesRouter(db));
   api.use('/subscriptions', requireAuth, subscriptionsRouter(db));
+  api.use('/invoices', requireAuth, invoicesRouter(db, config, mailer));
+  api.use('/billing', requireAuth, billingRouter(db));
   if (config.devMailbox && mailer instanceof DevMailbox) api.use('/dev', devRouter(mailer));
 
   api.use((_req, _res, next) => next(notFound('Endpoint')));

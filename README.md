@@ -3,8 +3,8 @@
 A subscription management system for Brightloop Software: products and plans, quotations,
 subscriptions, recurring invoices, payments and revenue reporting in one place.
 
-> **Status: Stage 3 of 7 - accounts, catalog and pricing, quotations and the subscription lifecycle.** Recurring
-> billing, payments and the finance dashboard land in later stages; this README is updated as each one ships.
+> **Status: Stage 4 of 7 - accounts, catalog and pricing, quotations, the subscription lifecycle and recurring
+> billing.** Payments and the finance dashboard land in later stages; this README is updated as each one ships.
 
 ## What works today
 
@@ -39,6 +39,33 @@ subscriptions, recurring invoices, payments and revenue reporting in one place.
   - A full history of who did what and when is kept on every subscription.
   - Customers see only their own subscriptions in the portal and can confirm, pause, close early or renew them
     where the plan permits. Anything else about another customer's record answers "not found".
+- **Recurring billing and invoices:**
+  - *Billing day* creates an invoice for every active subscription whose next billing period has started: customer
+    details, lines, tax, the best qualifying discount and totals are filled in from saved data, nobody types
+    anything. Invoices start as drafts (or are confirmed on creation if you tick the box) and carry their own number.
+  - **Nothing is billed twice**: each invoice is keyed by (subscription, billing period) with a database `UNIQUE`
+    constraint, and is created in the same transaction that moves the subscription to its next period. Running
+    billing again, or two runs at once, creates nothing extra.
+  - **Nothing is skipped**: a subscription that is behind is caught up, one invoice per missed period, in order. One
+    that cannot be billed is recorded as a failure, shown under *Needs attention* with the reason, and tried again by
+    every later run or by *Retry*. A later period is never billed ahead of an earlier failed one.
+  - **Discounts apply on their own**: the best qualifying discount appears on the next invoice, uses one of its
+    allowed uses (atomically, so a limit is never exceeded), and stops when it expires or runs out. A failed attempt
+    uses nothing up.
+  - Invoice states **Draft -> Confirmed -> Paid** (plus Cancelled); staff can confirm, send (emails the customer),
+    cancel and print any invoice. Overdue invoices (confirmed, past due, still owing) are flagged and filterable.
+  - Customers see their own confirmed and paid invoices in the portal, never drafts or anyone else's.
+
+### Billing rules worth knowing
+
+- Billed **in advance**, one invoice per period, on or after the period's start date. Nothing is pro-rated: a final
+  short period is billed in full.
+- Paused subscriptions are not billed. Periods that start *while paused* are skipped on resume, and the
+  subscription's history says how many. Pausing or closing is refused while invoices are due ("run billing first"),
+  so revenue cannot be dropped by accident. Plans that close themselves wait until their last invoices are issued.
+- Cancelling an invoice keeps its period accounted for, so billing does not quietly invoice it again.
+- Sending an invoice only emails it. **No payment is ever charged**: no payment provider is connected, and payments
+  are recorded by staff (next stage).
 
 ### How prices are calculated
 
