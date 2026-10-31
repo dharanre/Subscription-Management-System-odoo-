@@ -3,8 +3,9 @@
 A subscription management system for Brightloop Software: products and plans, quotations,
 subscriptions, recurring invoices, payments and revenue reporting in one place.
 
-> **Status: Stage 4 of 7 - accounts, catalog and pricing, quotations, the subscription lifecycle and recurring
-> billing.** Payments and the finance dashboard land in later stages; this README is updated as each one ships.
+> **Status: Stage 5 of 7 - accounts, catalog and pricing, quotations, the subscription lifecycle, recurring billing
+> and payments.** The customer portal polish and the finance dashboard land in later stages; this README is updated
+> as each one ships.
 
 ## What works today
 
@@ -55,6 +56,20 @@ subscriptions, recurring invoices, payments and revenue reporting in one place.
   - Invoice states **Draft -> Confirmed -> Paid** (plus Cancelled); staff can confirm, send (emails the customer),
     cancel and print any invoice. Overdue invoices (confirmed, past due, still owing) are flagged and filterable.
   - Customers see their own confirmed and paid invoices in the portal, never drafts or anyone else's.
+- **Payments and receivables:**
+  - Staff record a payment against an invoice with its **method** (bank transfer, UPI, card, cheque, cash, other),
+    **amount**, **date received**, a reference and a note. The invoice updates at once: part payments keep it open,
+    and it becomes **Paid** when the payments cover it.
+  - Paying more than is owing is refused, as is a payment dated in the future or before the invoice was issued, or
+    against a draft, cancelled or already-paid invoice. An invoice's paid amount always equals its recorded
+    payments, and a database constraint stops it ever exceeding the total.
+  - A retried request (a double click, a dropped connection) is answered with the payment it already made instead of
+    recording it twice. A mistaken payment is **voided** with a reason, never deleted: it stays on record and the
+    invoice owes the money again.
+  - **Receivables** shows what is owed, aged by how late it is (not yet due, 1-30, 31-60, 61-90, 90+ days), the
+    overdue invoices longest first, and a one-click *Remind* (re-sends the invoice worded as an overdue reminder) or
+    *Record payment* for each. The **Payments** list filters by method, date, customer or reference and totals what
+    the filter adds up to.
 
 ### Billing rules worth knowing
 
@@ -65,7 +80,7 @@ subscriptions, recurring invoices, payments and revenue reporting in one place.
   so revenue cannot be dropped by accident. Plans that close themselves wait until their last invoices are issued.
 - Cancelling an invoice keeps its period accounted for, so billing does not quietly invoice it again.
 - Sending an invoice only emails it. **No payment is ever charged**: no payment provider is connected, and payments
-  are recorded by staff (next stage).
+  are recorded by staff. A payment entry means money has already arrived; it never moves any.
 
 ### How prices are calculated
 

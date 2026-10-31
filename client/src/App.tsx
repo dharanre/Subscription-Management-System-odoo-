@@ -13,8 +13,10 @@ import { InvoicesPage } from './pages/Invoices';
 import { LoginPage } from './pages/Login';
 import { OverviewPage } from './pages/Overview';
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordReset';
+import { PaymentsPage } from './pages/Payments';
 import { PlansPage } from './pages/Plans';
 import { ProductsPage } from './pages/Products';
+import { ReceivablesPage } from './pages/Receivables';
 import { SignupPage } from './pages/Signup';
 import { SubscriptionDetailPage } from './pages/SubscriptionDetail';
 import { SubscriptionFormPage } from './pages/SubscriptionForm';
@@ -43,6 +45,8 @@ export function App() {
         <Route path="billing" element={<RequireAuth roles={['admin', 'staff']}><BillingPage /></RequireAuth>} />
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="invoices/:id" element={<InvoiceDetailPage />} />
+        <Route path="payments" element={<RequireAuth roles={['admin', 'staff']}><PaymentsPage /></RequireAuth>} />
+        <Route path="receivables" element={<RequireAuth roles={['admin', 'staff']}><ReceivablesPage /></RequireAuth>} />
         <Route path="customers" element={<RequireAuth roles={['admin', 'staff']}><CustomersPage /></RequireAuth>} />
         <Route path="templates" element={<RequireAuth roles={['admin', 'staff']}><TemplatesPage /></RequireAuth>} />
 

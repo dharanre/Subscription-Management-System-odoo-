@@ -318,7 +318,9 @@
 }
 
 /* ---------- Tables ---------- */
+/* Positioned so that visually-hidden labels inside a wide table are clipped with it instead of widening the page. */
 .table-wrap {
+  position: relative;
   overflow-x: auto;
 }
 .table {

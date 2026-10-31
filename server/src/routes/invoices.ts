@@ -14,6 +14,8 @@ import {
 } from '../lib/invoices.js';
 import type { Mailer } from '../lib/mailer.js';
 import { dateSchema, today } from '../lib/money.js';
+import { recordPayment } from '../lib/payments.js';
+import { recordPaymentSchema } from './payments.js';
 import { ownedCustomerIds } from '../lib/subscriptions.js';
 import { requireRole } from '../middleware/auth.js';
 
@@ -26,6 +28,8 @@ const listSchema = pagingSchema.extend({
   subscriptionId: z.coerce.number().int().positive().optional(),
   from: dateSchema('From').optional(),
   to: dateSchema('To').optional(),
+  /** newest first (default), or the longest-overdue first, for chasing. */
+  sort: z.enum(['newest', 'due']).default('newest'),
 });
 const actionSchema = z.object({ note: z.string(text('Note')).trim().max(500, 'Note is too long').nullable().optional() });
 const bulkSchema = z.object({ ids: z.array(z.number().int().positive()).max(5000).optional() });
@@ -57,7 +61,7 @@ export function invoicesRouter(db: DB, config: Config, mailer: Mailer): Router {
   }
 
   router.get('/', (req, res) => {
-    const { page, pageSize, status, q, customerId, subscriptionId, from, to } = parse(listSchema, req.query);
+    const { page, pageSize, status, q, customerId, subscriptionId, from, to, sort } = parse(listSchema, req.query);
     const mine = scope(req);
     if (mine.none) return void res.json(pageOf([], 0, page, pageSize));
 
@@ -99,7 +103,7 @@ export function invoicesRouter(db: DB, config: Config, mailer: Mailer): Router {
     }
     const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const total = get<{ n: number }>(db, `SELECT COUNT(*) AS n FROM invoices i ${clause}`, ...args)!.n;
-    const rows = all<InvoiceRow>(db, `SELECT i.* FROM invoices i ${clause} ORDER BY i.id DESC LIMIT ? OFFSET ?`, ...args, pageSize, (page - 1) * pageSize);
+    const rows = all<InvoiceRow>(db, `SELECT i.* FROM invoices i ${clause} ORDER BY ${sort === 'due' ? 'i.due_date ASC, i.id ASC' : 'i.id DESC'} LIMIT ? OFFSET ?`, ...args, pageSize, (page - 1) * pageSize);
     res.json(pageOf(rows.map((r) => presentInvoiceSummary(r, date)), total, page, pageSize));
   });
 
@@ -139,6 +143,19 @@ export function invoicesRouter(db: DB, config: Config, mailer: Mailer): Router {
   router.get('/:id', (req, res) => {
     const row = visible(req, String(req.params.id));
     res.json({ invoice: presentInvoice(db, row, isStaff(req) ? 'staff' : 'customer') });
+  });
+
+  /** Records money received against this invoice. A retried request (same requestId) is answered, not repeated. */
+  router.post('/:id/payments', staffOnly, (req, res) => {
+    const row = visible(req, String(req.params.id));
+    const input = parse(recordPaymentSchema, req.body);
+    const { payment, duplicate } = recordPayment(
+      db,
+      row.id,
+      { amountMinor: input.amount, method: input.method, paidOn: input.paidOn, reference: input.reference, note: input.note, requestId: input.requestId },
+      req.user!.id,
+    );
+    res.status(duplicate ? 200 : 201).json({ paymentId: payment.id, duplicate, invoice: presentInvoice(db, getInvoice(db, row.id)!, 'staff') });
   });
 
   router.post('/:id/actions/:action', staffOnly, async (req, res) => {

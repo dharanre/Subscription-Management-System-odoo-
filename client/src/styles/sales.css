@@ -173,6 +173,8 @@
 }
 .stack {
   display: grid;
+  /* minmax(0, ...) lets the column shrink to the screen; a plain auto column would grow to its widest table. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 .back-link {

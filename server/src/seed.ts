@@ -1,10 +1,13 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
-import { type DB, get, migrate, openDb, run } from './db.js';
+import { type DB, all, get, migrate, openDb, run } from './db.js';
 import type { Action } from './lib/lifecycle.js';
 import { hashPassword } from './lib/password.js';
 import { runBilling } from './lib/billing.js';
+import { addDays } from './lib/dates.js';
+import { type PaymentMethod } from './lib/paymentRows.js';
+import { recordPayment } from './lib/payments.js';
 import { applyAction, createSubscription, sweepExpired } from './lib/subscriptions.js';
 
 /**
@@ -256,8 +259,41 @@ export async function seedSubscriptions(db: DB, bcryptCost: number): Promise<{ c
     d.after?.(id);
     made.subscriptions += 1;
   }
+  seedPayments(db, admin);
   sweepExpired(db);
   return made;
+}
+
+/**
+ * Gives the invoices billing made for the running demo subscriptions a believable payment history. Billing
+ * runs on each period's first day, so the invoices are dated then and fall due under their payment terms.
+ * Then, in turn: one is paid in full, one is part-paid, one is untouched. That leaves paid, part-paid and
+ * overdue invoices to look at. Payments go through the same code the API uses.
+ */
+function seedPayments(db: DB, actorId: number | null) {
+  const methods: PaymentMethod[] = ['bank_transfer', 'upi', 'card', 'cheque', 'cash'];
+  const invoices = all<{ id: number; period_start: string; total_minor: number; days_due: number | null }>(
+    db,
+    `SELECT i.id, i.period_start, i.total_minor, t.days_due FROM invoices i
+       JOIN subscriptions s ON s.id = i.subscription_id LEFT JOIN payment_terms t ON t.id = s.payment_terms_id
+      WHERE i.is_demo = 1 ORDER BY i.id`,
+  );
+  const todayIso = dayOffset(0);
+  invoices.forEach((inv, n) => {
+    const due = addDays(inv.period_start, inv.days_due ?? 0);
+    run(db, 'UPDATE invoices SET issue_date = ?, due_date = ? WHERE id = ?', inv.period_start, due, inv.id);
+    if (n % 3 === 2) return;
+    // paid a few days before it fell due, but never before it was issued or in the future
+    const wanted = addDays(due, -3);
+    const paidOn = wanted < inv.period_start ? inv.period_start : wanted > todayIso ? todayIso : wanted;
+    const full = n % 3 === 0;
+    recordPayment(
+      db,
+      inv.id,
+      { amountMinor: full ? inv.total_minor : Math.floor(inv.total_minor / 2), method: methods[n % methods.length]!, paidOn, reference: `DEMO-${String(inv.id).padStart(4, '0')}`, isDemo: true },
+      actorId,
+    );
+  });
 }
 
 async function main() {
