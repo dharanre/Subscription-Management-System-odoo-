@@ -54,6 +54,9 @@ const listSchema = pagingSchema.extend({
   q: z.string().trim().max(100).optional(),
   customerId: z.coerce.number().int().positive().optional(),
   planId: z.coerce.number().int().positive().optional(),
+  /** Only subscriptions that start within these dates. */
+  from: dateSchema('From').optional(),
+  to: dateSchema('To').optional(),
 });
 
 const SUMMARY_SQL = `SELECT s.*, c.name AS customer_name, c.company AS customer_company, p.name AS plan_name, p.billing_period AS plan_period
@@ -90,7 +93,7 @@ export function subscriptionsRouter(db: DB): Router {
 
   router.get('/', (req, res) => {
     sweepExpired(db);
-    const { page, pageSize, status, q, customerId, planId } = parse(listSchema, req.query);
+    const { page, pageSize, status, q, customerId, planId, from, to } = parse(listSchema, req.query);
     const mine = scope(req);
     if (mine.none) return void res.json(pageOf([], 0, page, pageSize));
 
@@ -111,6 +114,14 @@ export function subscriptionsRouter(db: DB): Router {
     if (planId) {
       where.push('s.plan_id = ?');
       args.push(planId);
+    }
+    if (from) {
+      where.push('s.start_date >= ?');
+      args.push(from);
+    }
+    if (to) {
+      where.push('s.start_date <= ?');
+      args.push(to);
     }
     if (q) {
       where.push(`(s.number LIKE ? ESCAPE '\\' OR c.name LIKE ? ESCAPE '\\' OR c.company LIKE ? ESCAPE '\\')`);

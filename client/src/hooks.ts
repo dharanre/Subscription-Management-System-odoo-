@@ -5,6 +5,8 @@ interface QueryState<T> {
   data?: T;
   error?: ApiError;
   loading: boolean;
+  /** When the data was last fetched successfully (ms since the epoch). */
+  updatedAt?: number;
 }
 
 /**
@@ -20,17 +22,21 @@ export function useQuery<T>(fetcher: () => Promise<T>, deps: unknown[], opts: { 
   useEffect(() => {
     let cancelled = false;
     const load = (initial: boolean) => {
-      if (initial) setState((s) => ({ data: s.data, loading: true }));
+      if (initial) setState((s) => ({ data: s.data, loading: true, updatedAt: s.updatedAt }));
       fetcherRef
         .current()
-        .then((data) => !cancelled && setState({ data, loading: false }))
-        .catch((err) => !cancelled && setState((s) => ({ data: s.data, error: toApiError(err), loading: false })));
+        .then((data) => !cancelled && setState({ data, loading: false, updatedAt: Date.now() }))
+        .catch((err) => !cancelled && setState((s) => ({ data: s.data, error: toApiError(err), loading: false, updatedAt: s.updatedAt })));
     };
     load(true);
     const id = opts.pollMs ? window.setInterval(() => load(false), opts.pollMs) : undefined;
+    // Coming back to the tab refreshes straight away instead of waiting for the next tick.
+    const onVisible = () => document.visibilityState === 'visible' && opts.pollMs && load(false);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
       if (id) window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick, opts.pollMs]);

@@ -10,6 +10,7 @@ import { loadSession, requireAuth, sameOriginWrites } from './middleware/auth.js
 import { authRouter } from './routes/auth.js';
 import { billingRouter } from './routes/billing.js';
 import { customersRouter } from './routes/customers.js';
+import { dashboardRouter, portalRouter } from './routes/dashboard.js';
 import { devRouter } from './routes/dev.js';
 import { discountsRouter } from './routes/discounts.js';
 import { invoicesRouter } from './routes/invoices.js';
@@ -59,6 +60,8 @@ export function createApp({ config, db, mailer }: AppDeps): Express {
   api.use('/subscriptions', requireAuth, subscriptionsRouter(db));
   api.use('/invoices', requireAuth, invoicesRouter(db, config, mailer));
   api.use('/billing', requireAuth, billingRouter(db));
+  api.use('/dashboard', requireAuth, dashboardRouter(db));
+  api.use('/portal', requireAuth, portalRouter(db));
   api.use('/payments', requireAuth, paymentsRouter(db));
   api.use('/receivables', requireAuth, receivablesRouter(db));
   if (config.devMailbox && mailer instanceof DevMailbox) api.use('/dev', devRouter(mailer));
