@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { loadConfig } from './config.js';
 import { type DB, all, get, migrate, openDb, run, transaction } from './db.js';
 import { runBilling } from './lib/billing.js';
@@ -14,6 +15,9 @@ import { DEMO_PASSWORD, seedAccounts, seedCatalog, seedPaymentTerms } from './se
  * produced. Every record is flagged as demo data. Not for production: it refuses to run there.
  *
  *   npm run seed:load -w server -- --subscriptions=5000 --db=path/to/load.db
+ *
+ * Without --db it writes `load.db` beside the normal database, so the development data is never filled with load data
+ * by accident.
  */
 
 const args = Object.fromEntries(
@@ -25,7 +29,7 @@ const args = Object.fromEntries(
 const TOTAL = Number(args.subscriptions ?? 5000);
 const config = loadConfig();
 if (config.nodeEnv === 'production') throw new Error('Refusing to generate load data in a production environment.');
-const dbPath = args.db ?? config.dbPath;
+const dbPath = args.db ?? path.join(path.dirname(config.dbPath), 'load.db');
 
 /** A small seeded random number generator, so a given size always produces the same data. */
 function rng(seed: number) {
