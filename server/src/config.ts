@@ -22,6 +22,10 @@ export interface Config {
   rateLimit: boolean;
   /** Built client bundle, served by the API process when present. */
   clientDist: string;
+  /** ISO 4217 code used when showing amounts. Amounts are stored as plain numbers, never converted. */
+  currency: string;
+  /** BCP 47 tag controlling number and date formatting in the UI. */
+  locale: string;
 }
 
 function int(value: string | undefined, fallback: number): number {
@@ -52,6 +56,8 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     mailboxDir: env.MAILBOX_DIR ?? path.join(serverRoot, 'data', 'outbox'),
     rateLimit: env.RATE_LIMIT ? env.RATE_LIMIT === 'true' : nodeEnv !== 'test',
     clientDist: path.join(repoRoot, 'client', 'dist'),
+    currency: (env.CURRENCY ?? 'INR').toUpperCase(),
+    locale: env.LOCALE ?? 'en-IN',
     ...overrides,
   };
 }

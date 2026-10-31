@@ -1,8 +1,9 @@
-import { LayoutDashboard, LogOut, Mail, Menu, Users, X } from 'lucide-react';
+import { Calculator, CalendarClock, LayoutDashboard, LogOut, Mail, Menu, Package, Percent, Tag, Users, X } from 'lucide-react';
 import { type ComponentType, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { Role } from '../api';
 import { useAuth } from '../auth';
+import { MetaProvider } from '../meta';
 import { Button } from '../ui/Button';
 import { useToast } from '../ui/Feedback';
 import { LogoMark } from '../ui/Layout';
@@ -22,6 +23,21 @@ interface NavGroup {
 
 const NAV: NavGroup[] = [
   { items: [{ to: '/', label: 'Overview', icon: LayoutDashboard, roles: ['admin', 'staff', 'customer'], end: true }] },
+  {
+    label: 'Catalog',
+    items: [
+      { to: '/products', label: 'Products', icon: Package, roles: ['admin', 'staff'] },
+      { to: '/plans', label: 'Plans', icon: CalendarClock, roles: ['admin', 'staff'] },
+    ],
+  },
+  {
+    label: 'Pricing',
+    items: [
+      { to: '/taxes', label: 'Taxes', icon: Percent, roles: ['admin', 'staff'] },
+      { to: '/discounts', label: 'Discounts', icon: Tag, roles: ['admin', 'staff'] },
+      { to: '/calculator', label: 'Price calculator', icon: Calculator, roles: ['admin', 'staff'] },
+    ],
+  },
   { label: 'Administration', items: [{ to: '/team', label: 'Team', icon: Users, roles: ['admin'] }] },
   { label: 'Developer', items: [{ to: '/dev/mailbox', label: 'Dev mailbox', icon: Mail, roles: ['admin'], devOnly: true }] },
 ];
@@ -101,7 +117,9 @@ export function AppShell() {
 
       <main className="main">
         <div className="content">
-          <Outlet />
+          <MetaProvider>
+            <Outlet />
+          </MetaProvider>
         </div>
       </main>
     </div>
