@@ -31,7 +31,8 @@ export function SubscriptionsPage() {
   const { money } = useMoney();
   const [params, setParams] = useSearchParams();
   const customerId = isStaff ? params.get('customerId') : null;
-  const [status, setStatus] = useState<'' | SubStatus>('');
+  const fromLink = params.get('status') as SubStatus | null;
+  const [status, setStatus] = useState<'' | SubStatus>(fromLink && TABS.some((t) => t.value === fromLink) ? fromLink : '');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const search = useDebounced(q.trim());

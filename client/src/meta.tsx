@@ -8,6 +8,10 @@ interface Meta {
 
 interface MetaValue {
   money(amount: number): string;
+  /** A short form for chart axes and tight spaces, e.g. ₹1.2L or $3.4K. */
+  compact(amount: number): string;
+  /** A plain number grouped the same way as the amounts, e.g. 1,23,456 or 123,456. */
+  count(n: number): string;
   /** Currency symbol only, for input prefixes. */
   symbol: string;
   currency: string;
@@ -28,7 +32,9 @@ export function MetaProvider({ children }: { children: ReactNode }) {
   const value = useMemo<MetaValue>(() => {
     const fmt = new Intl.NumberFormat(meta.locale, { style: 'currency', currency: meta.currency });
     const symbol = fmt.formatToParts(0).find((p) => p.type === 'currency')?.value ?? meta.currency;
-    return { money: (n) => fmt.format(n), symbol, currency: meta.currency };
+    const short = new Intl.NumberFormat(meta.locale, { style: 'currency', currency: meta.currency, notation: 'compact', maximumFractionDigits: 1 });
+    const plain = new Intl.NumberFormat(meta.locale);
+    return { money: (n) => fmt.format(n), compact: (n) => short.format(n), count: (n) => plain.format(n), symbol, currency: meta.currency };
   }, [meta]);
 
   return <MetaContext.Provider value={value}>{children}</MetaContext.Provider>;

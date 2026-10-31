@@ -27,6 +27,8 @@ export function openDb(file: string): DB {
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
   db.exec('PRAGMA busy_timeout = 5000');
+  // With the write-ahead log, NORMAL still survives an application crash and makes each commit far cheaper.
+  db.exec('PRAGMA synchronous = NORMAL');
   return db;
 }
 
