@@ -196,7 +196,8 @@ nothing of yours is touched and a copy of the app you are running is never distu
 out; what each role can and cannot reach, including the server refusing a customer who bypasses the screens;
 one customer's whole journey (signs up, is sold a subscription, is billed, sees what they owe, is paid, and both the
 customer's overview and finance's dashboard follow); the dashboard's period, chart, links and live refresh; and every
-screen on a laptop and a phone, failing on any script error, refused API call or sideways scrolling.
+screen on a laptop and a phone, failing on any script error, refused API call or sideways scrolling; and that the
+side menu stays inside its panel on a short window.
 
 The first time, install a browser for Playwright with `npx playwright install chromium`, or use the Chrome you
 already have: `E2E_CHANNEL=chrome npm run e2e`.

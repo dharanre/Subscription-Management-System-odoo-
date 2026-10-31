@@ -9,12 +9,18 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 18px 14px 14px;
   background: var(--ink-900);
   color: #c7d1d9;
+  /* The brand and the account stay put; only the menu between them scrolls (see .nav). */
+  overflow: hidden;
+}
+.sidebar > :not(.nav) {
+  flex: none;
 }
 .brand {
   display: flex;
@@ -44,6 +50,13 @@
   gap: 2px;
   flex: 1;
   align-content: start;
+  /* min-height 0 lets this flex child shrink below its content, so a short window scrolls the menu
+     instead of letting it spill out of the dark panel. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 22%) transparent;
 }
 .nav__label {
   padding: 14px 10px 6px;
@@ -170,6 +183,8 @@
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
+    /* top and bottom already pin it to the visible screen; 100vh would be taller than it on a phone's browser */
+    height: auto;
     z-index: 40;
     width: min(288px, 86vw);
     transform: translateX(-102%);

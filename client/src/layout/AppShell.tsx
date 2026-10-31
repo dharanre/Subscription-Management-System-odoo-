@@ -1,5 +1,5 @@
 import { Calculator, CalendarCheck, CalendarClock, FileStack, Hourglass, Receipt, Wallet, LayoutDashboard, LogOut, Mail, Menu, Package, Percent, Repeat, Tag, UserRound, Users, X } from 'lucide-react';
-import { type ComponentType, useEffect, useState } from 'react';
+import { type ComponentType, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { Role } from '../api';
 import { useAuth } from '../auth';
@@ -70,6 +70,18 @@ export function AppShell() {
 
   useEffect(() => setNavOpen(false), [location.pathname]);
 
+  // On a short window the menu scrolls, so keep the page you are on in view (only the menu moves, never the page).
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const menu = navRef.current;
+    const current = menu?.querySelector<HTMLElement>('a.active');
+    if (!menu || !current) return;
+    const m = menu.getBoundingClientRect();
+    const c = current.getBoundingClientRect();
+    if (c.top < m.top) menu.scrollTop -= m.top - c.top;
+    else if (c.bottom > m.bottom) menu.scrollTop += c.bottom - m.bottom;
+  }, [location.pathname, user?.role]);
+
   if (!user) return null;
 
   const groups = NAV.map((g) => ({
@@ -109,7 +121,7 @@ export function AppShell() {
           </span>
           {navOpen && <Button variant="ghost" size="sm" aria-label="Close navigation" onClick={() => setNavOpen(false)} icon={<X size={18} />} />}
         </div>
-        <nav className="nav">
+        <nav className="nav" ref={navRef}>
           {groups.map((g, i) => (
             <div key={g.label ?? i} style={{ display: 'contents' }}>
               {g.label && <div className="nav__label">{g.label}</div>}
