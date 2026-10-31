@@ -4,6 +4,7 @@ import { loadConfig } from './config.js';
 import { type DB, get, migrate, openDb, run } from './db.js';
 import type { Action } from './lib/lifecycle.js';
 import { hashPassword } from './lib/password.js';
+import { runBilling } from './lib/billing.js';
 import { applyAction, createSubscription, sweepExpired } from './lib/subscriptions.js';
 
 /**
@@ -218,19 +219,20 @@ export async function seedSubscriptions(db: DB, bcryptCost: number): Promise<{ c
     expiry: number;
     lines?: { productId: number; variantId?: number | null; quantity: number }[];
     template?: string;
-    path: Action[];
+    /** Lifecycle steps; 'bill' runs real billing for this subscription (confirming its invoices) before the next step. */
+    path: (Action | 'bill')[];
     after?: (id: number) => void;
   }
   const demos: Demo[] = [
     { customer: 'Maple Street Bakery', plan: 'Starter Monthly', start: -3, expiry: 362, lines: [{ productId: product(CRM), quantity: 1 }, { productId: product('Extra storage (100 GB)'), quantity: 1 }], path: ['send_quote', 'confirm', 'activate'] },
     { customer: 'Harbor Light Dental', plan: 'Business Monthly', start: -3, expiry: 362, lines: [{ productId: product(CRM), variantId: variant(CRM, 'Odoo'), quantity: 6 }, { productId: product(HELPDESK), quantity: 6 }], path: ['send_quote', 'confirm', 'activate'] },
-    { customer: 'Pinecone Studio', plan: 'Starter Monthly', start: -40, expiry: 325, lines: [{ productId: product(HELPDESK), quantity: 2 }], path: ['send_quote', 'confirm', 'activate', 'pause'] },
+    { customer: 'Pinecone Studio', plan: 'Starter Monthly', start: -40, expiry: 325, lines: [{ productId: product(HELPDESK), quantity: 2 }], path: ['send_quote', 'confirm', 'activate', 'bill', 'pause'] },
     { customer: 'Riverbend Logistics', plan: 'Business Yearly', start: -100, expiry: 265, template: 'Business team, yearly', path: ['send_quote', 'confirm', 'activate'] },
     { customer: 'Sunrise Pharmacy', plan: 'Business Monthly', start: 5, expiry: 370, lines: [{ productId: product(CRM), quantity: 5 }], path: ['send_quote', 'confirm'] },
     { customer: 'Orchid Textiles', plan: 'Enterprise Yearly', start: 10, expiry: 375, template: 'Enterprise rollout', path: ['send_quote'] },
     { customer: 'Granite Peak Consulting', plan: 'Starter Monthly', start: 0, expiry: 365, lines: [{ productId: product(HELPDESK), quantity: 1 }], path: [] },
-    { customer: 'Blue Kite Learning', plan: 'Weekly Trial', start: -20, expiry: 40, lines: [{ productId: product(HELPDESK), quantity: 1 }], path: ['send_quote', 'confirm', 'activate'], after: (id) => run(db, 'UPDATE subscriptions SET expiry_date = ? WHERE id = ?', plusDays(-2), id) },
-    { customer: 'Pinecone Studio', plan: 'Starter Monthly', start: -60, expiry: 305, lines: [{ productId: product(CRM), quantity: 1 }], path: ['send_quote', 'confirm', 'activate', 'close'] },
+    { customer: 'Blue Kite Learning', plan: 'Weekly Trial', start: -20, expiry: 40, lines: [{ productId: product(HELPDESK), quantity: 1 }], path: ['send_quote', 'confirm', 'activate', 'bill'], after: (id) => run(db, 'UPDATE subscriptions SET expiry_date = ? WHERE id = ?', plusDays(-2), id) },
+    { customer: 'Pinecone Studio', plan: 'Starter Monthly', start: -60, expiry: 305, lines: [{ productId: product(CRM), quantity: 1 }], path: ['send_quote', 'confirm', 'activate', 'bill', 'close'] },
     { customer: 'Granite Peak Consulting', plan: 'Business Monthly', start: 0, expiry: 365, lines: [{ productId: product(CRM), quantity: 5 }], path: ['send_quote', 'cancel'] },
     { customer: 'Orchid Textiles', plan: 'Business Monthly', start: 2, expiry: 367, lines: [{ productId: product(HELPDESK), quantity: 5 }], path: ['send_quote'], after: (id) => run(db, 'UPDATE subscriptions SET quote_valid_until = ? WHERE id = ?', plusDays(-3), id) },
   ];
@@ -247,7 +249,10 @@ export async function seedSubscriptions(db: DB, bcryptCost: number): Promise<{ c
       createdBy: admin,
       isDemo: true,
     });
-    for (const action of d.path) applyAction(db, id, action, staff);
+    for (const step of d.path) {
+      if (step === 'bill') await runBilling(db, { subscriptionId: id, confirm: true, triggeredBy: admin, isDemo: true });
+      else applyAction(db, id, step, staff);
+    }
     d.after?.(id);
     made.subscriptions += 1;
   }

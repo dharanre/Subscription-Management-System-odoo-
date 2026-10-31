@@ -12,6 +12,11 @@
   .table td:last-child {
     padding-right: 12px;
   }
+  .table--compact th:first-child,
+  .table--compact td:first-child {
+    min-width: 0;
+    padding-left: 12px;
+  }
 }
 
 /* ---------- Lifecycle stepper ---------- */

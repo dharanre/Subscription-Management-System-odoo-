@@ -103,4 +103,5 @@ export interface SubscriptionDetail extends Omit<SubscriptionSummary, 'customer'
   estimatedDiscount: { id: number; name: string; amount: number } | null;
   events: SubscriptionEvent[];
   actions: { action: SubAction; label: string }[];
+  invoices: { id: number; number: string; status: 'draft' | 'confirmed' | 'paid' | 'cancelled'; periodStart: string; periodEnd: string; dueDate: string; total: number; paid: number }[];
 }

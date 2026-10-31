@@ -1,10 +1,15 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { PublicOnly, RequireAuth } from './auth';
 import { AppShell } from './layout/AppShell';
+import { MetaProvider } from './meta';
+import { BillingPage } from './pages/Billing';
 import { CalculatorPage } from './pages/Calculator';
 import { CustomersPage } from './pages/Customers';
 import { DevMailboxPage } from './pages/DevMailbox';
 import { DiscountsPage } from './pages/Discounts';
+import { InvoiceDetailPage } from './pages/InvoiceDetail';
+import { InvoicePrintPage } from './pages/InvoicePrint';
+import { InvoicesPage } from './pages/Invoices';
 import { LoginPage } from './pages/Login';
 import { OverviewPage } from './pages/Overview';
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordReset';
@@ -26,6 +31,8 @@ export function App() {
       <Route path="/forgot-password" element={<PublicOnly><ForgotPasswordPage /></PublicOnly>} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+      <Route path="/invoices/:id/print" element={<RequireAuth><MetaProvider><InvoicePrintPage /></MetaProvider></RequireAuth>} />
+
       <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route index element={<OverviewPage />} />
 
@@ -33,6 +40,9 @@ export function App() {
         <Route path="subscriptions/new" element={<RequireAuth roles={['admin', 'staff']}><SubscriptionFormPage /></RequireAuth>} />
         <Route path="subscriptions/:id" element={<SubscriptionDetailPage />} />
         <Route path="subscriptions/:id/edit" element={<RequireAuth roles={['admin', 'staff']}><SubscriptionFormPage /></RequireAuth>} />
+        <Route path="billing" element={<RequireAuth roles={['admin', 'staff']}><BillingPage /></RequireAuth>} />
+        <Route path="invoices" element={<InvoicesPage />} />
+        <Route path="invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="customers" element={<RequireAuth roles={['admin', 'staff']}><CustomersPage /></RequireAuth>} />
         <Route path="templates" element={<RequireAuth roles={['admin', 'staff']}><TemplatesPage /></RequireAuth>} />
 

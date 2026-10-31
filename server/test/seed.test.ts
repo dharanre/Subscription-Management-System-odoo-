@@ -90,4 +90,28 @@ describe('demo seed', () => {
     const someoneElses = get<{ id: number }>(t.db, `SELECT s.id FROM subscriptions s JOIN customers c ON c.id = s.customer_id WHERE c.company = 'Harbor Light Dental'`)!.id;
     expect((await portal.get(`/api/subscriptions/${someoneElses}`)).status).toBe(404);
   });
+
+  it('gives running subscriptions a real billing history and leaves exactly the right ones due', async () => {
+    const t = await buildTestApp();
+    seedCatalog(t.db);
+    await seedSubscriptions(t.db, 4);
+    const staff = await loginAs(t, STAFF);
+
+    // made by the real billing code and already confirmed, so the invoice list is not empty on day one
+    const issued = all<{ status: string; is_demo: number; total_minor: number; paid_minor: number }>(t.db, 'SELECT status, is_demo, total_minor, paid_minor FROM invoices');
+    expect(issued.length).toBeGreaterThanOrEqual(5);
+    expect(issued.every((i) => i.status === 'confirmed' && i.is_demo === 1 && i.paid_minor === 0)).toBe(true);
+    expect(all(t.db, 'SELECT subscription_id, period_index FROM invoices GROUP BY 1, 2 HAVING COUNT(*) > 1')).toHaveLength(0);
+
+    // the three subscriptions that just started are waiting for billing day; the paused, closed and trial ones are not
+    const due = (await staff.get('/api/billing/due')).body;
+    expect(due.subscriptionsDue).toBe(3);
+    expect(due.items.map((i: { customer: string }) => i.customer).sort()).toEqual(['Harbor Light Dental', 'Maple Street Bakery', 'Riverbend Logistics']);
+
+    const before = issued.length;
+    const run1 = (await staff.post('/api/billing/run').send({})).body.run;
+    expect(run1.created).toHaveLength(3);
+    expect((await staff.post('/api/billing/run').send({})).body.run.created).toHaveLength(0);
+    expect(get<{ n: number }>(t.db, 'SELECT COUNT(*) AS n FROM invoices')!.n).toBe(before + 3);
+  });
 });
