@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { type DB, type Param, all, get, isUniqueViolation, run, transaction } from '../db.js';
 import { type ProductRow, type TaxRow, type VariantRow, loadVariants, toProduct, toVariant } from '../lib/catalog.js';
-import { conflict, invalidField, likePattern, notFound, pageOf, pagingSchema, parse, text } from '../lib/http.js';
+import { conflict, invalidField, likePattern, notFound, pageOf, pagingSchema, parse, text, kind } from '../lib/http.js';
 import { moneySchema } from '../lib/money.js';
 import { requireRole } from '../middleware/auth.js';
 
@@ -19,10 +19,10 @@ const variantUpdateSchema = z.object({ ...variantFields, isActive: z.boolean() }
 
 const productFields = {
   name,
-  type: z.enum(TYPES, { errorMap: () => ({ message: `Type must be one of: ${TYPES.join(', ')}` }) }),
+  type: z.enum(TYPES, { error: `Type must be one of: ${TYPES.join(', ')}` }),
   salesPrice: moneySchema('Sales price'),
   costPrice: moneySchema('Cost price'),
-  taxId: z.number({ invalid_type_error: 'Choose a tax' }).int().positive().nullable(),
+  taxId: z.number(kind('Choose a tax')).int().positive().nullable(),
   notes: z.string(text('Notes')).trim().max(2000, 'Notes are too long').nullable(),
 };
 const createSchema = z.object({

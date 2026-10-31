@@ -211,11 +211,9 @@ how numbers are displayed; stored amounts are plain numbers and are never conver
 
 ## Known issues
 
-- **Dependency advisories.** `npm audit` reports `zod` (memory use when validating very large lists). Its only fix is
-  the zod 4 major release, which changes validation in every route, so it is left for a deliberate upgrade. Exposure
-  here is small: every request body is capped at 100 kB and the lists the API accepts are limited to 5,000 items or
-  fewer. The other advisories are in development tools (Vitest, ESLint) that only ever run on this repository's own
-  code, never in the deployed app.
+- **Dependency advisories.** `npm audit --omit=dev`, which covers what is deployed, reports none. `npm audit` on the
+  whole tree still lists advisories in development tools (Vitest, ESLint) that only ever run on this repository's own
+  code, never in the deployed app; clearing them means major upgrades of those tools.
 - **No payment provider.** Payments are recorded by staff; nothing is ever charged (see *Billing rules*).
 
 ## Project layout

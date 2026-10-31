@@ -2,24 +2,24 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { type DB, get } from '../db.js';
 import { type PlanRow, buildLines, discountStatus, isPlanAvailable, loadDiscountStates } from '../lib/catalog.js';
-import { invalidField, parse } from '../lib/http.js';
+import { invalidField, parse, kind } from '../lib/http.js';
 import { bpToPercent, dateSchema, fromMinor, today } from '../lib/money.js';
 import { chooseBestDiscount, discountUnavailableReason, evaluateDiscount, priceLines } from '../lib/pricing.js';
 import { requireRole } from '../middleware/auth.js';
 
 const previewSchema = z.object({
-  planId: z.number({ invalid_type_error: 'Choose a plan' }).int().positive().nullable().optional(),
+  planId: z.number(kind('Choose a plan')).int().positive().nullable().optional(),
   lines: z
     .array(
       z.object({
-        productId: z.number({ required_error: 'Choose a product', invalid_type_error: 'Choose a product' }).int().positive('Choose a product'),
-        variantId: z.number({ invalid_type_error: 'Choose a valid option' }).int().positive().nullable().optional(),
-        quantity: z.number({ required_error: 'Quantity is required', invalid_type_error: 'Quantity must be a number' }).int('Quantity must be a whole number').min(1, 'Quantity must be at least 1').max(100_000, 'Quantity is too large'),
+        productId: z.number(kind('Choose a product', 'Choose a product')).int().positive('Choose a product'),
+        variantId: z.number(kind('Choose a valid option')).int().positive().nullable().optional(),
+        quantity: z.number(kind('Quantity must be a number', 'Quantity is required')).int('Quantity must be a whole number').min(1, 'Quantity must be at least 1').max(100_000, 'Quantity is too large'),
       }),
     )
     .max(100, 'At most 100 lines')
     .default([]),
-  discountId: z.number({ invalid_type_error: 'Choose a discount' }).int().positive().nullable().optional(),
+  discountId: z.number(kind('Choose a discount')).int().positive().nullable().optional(),
   date: dateSchema('Date').optional(),
 });
 

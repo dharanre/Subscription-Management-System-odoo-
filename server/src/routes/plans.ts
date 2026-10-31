@@ -2,19 +2,19 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { type DB, type Param, all, get, isUniqueViolation, run } from '../db.js';
 import { type PlanRow, toPlan } from '../lib/catalog.js';
-import { conflict, invalidField, likePattern, notFound, pageOf, pagingSchema, parse, text } from '../lib/http.js';
+import { conflict, invalidField, likePattern, notFound, pageOf, pagingSchema, parse, text, kind } from '../lib/http.js';
 import { dateSchema, moneySchema, today } from '../lib/money.js';
 import { requireRole } from '../middleware/auth.js';
 
 const PERIODS = ['daily', 'weekly', 'monthly', 'yearly'] as const;
-const flag = (label: string) => z.boolean({ invalid_type_error: `${label} must be true or false` });
+const flag = (label: string) => z.boolean(kind(`${label} must be true or false`));
 
 const planFields = {
   name: z.string(text('Name')).trim().min(1, 'Name is required').max(120, 'Name is too long'),
   description: z.string(text('Description')).trim().max(1000, 'Description is too long').nullable(),
   price: moneySchema('Price'),
-  billingPeriod: z.enum(PERIODS, { errorMap: () => ({ message: `Billing period must be one of: ${PERIODS.join(', ')}` }) }),
-  minQuantity: z.number({ invalid_type_error: 'Minimum quantity must be a number' }).int('Minimum quantity must be a whole number').min(1, 'Minimum quantity must be at least 1').max(100_000, 'Minimum quantity is too large'),
+  billingPeriod: z.enum(PERIODS, { error: `Billing period must be one of: ${PERIODS.join(', ')}` }),
+  minQuantity: z.number(kind('Minimum quantity must be a number')).int('Minimum quantity must be a whole number').min(1, 'Minimum quantity must be at least 1').max(100_000, 'Minimum quantity is too large'),
   availableFrom: dateSchema('Available from'),
   availableTo: dateSchema('Available to').nullable(),
   autoClose: flag('autoClose'),

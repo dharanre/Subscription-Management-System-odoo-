@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { type DB, all, get } from '../db.js';
 import { assertNotFuture, duePeriodsOf, retryFailure, runBilling, selectDue } from '../lib/billing.js';
-import { notFound, pageOf, pagingSchema, parse } from '../lib/http.js';
+import { notFound, pageOf, pagingSchema, parse, kind } from '../lib/http.js';
 import { dateSchema, fromMinor, today } from '../lib/money.js';
 import { priceLines } from '../lib/pricing.js';
 import { loadLines, toLineInputs } from '../lib/subscriptions.js';
@@ -10,7 +10,7 @@ import { requireRole } from '../middleware/auth.js';
 
 const runSchema = z.object({
   asOf: dateSchema('Billing date').optional(),
-  confirm: z.boolean({ invalid_type_error: 'confirm must be true or false' }).optional(),
+  confirm: z.boolean(kind('confirm must be true or false')).optional(),
 });
 const dueSchema = pagingSchema.extend({ asOf: dateSchema('Billing date').optional() });
 const failuresSchema = pagingSchema.extend({ status: z.enum(['open', 'resolved']).default('open') });

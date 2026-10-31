@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { type DB, all, get, isUniqueViolation, run, transaction } from '../db.js';
-import { conflict, notFound, parse, text } from '../lib/http.js';
+import { conflict, notFound, parse, text, kind } from '../lib/http.js';
 import { requireRole } from '../middleware/auth.js';
 
 interface TermsRow {
@@ -17,9 +17,9 @@ const toTerms = (r: TermsRow) => ({ id: r.id, name: r.name, daysDue: r.days_due,
 
 const fields = {
   name: z.string(text('Name')).trim().min(1, 'Name is required').max(80, 'Name is too long'),
-  daysDue: z.number({ required_error: 'Days due is required', invalid_type_error: 'Days due must be a number' }).int('Days due must be a whole number').min(0, 'Days due cannot be negative').max(365, 'Days due cannot exceed 365'),
-  isDefault: z.boolean({ invalid_type_error: 'isDefault must be true or false' }),
-  isActive: z.boolean({ invalid_type_error: 'isActive must be true or false' }),
+  daysDue: z.number(kind('Days due must be a number', 'Days due is required')).int('Days due must be a whole number').min(0, 'Days due cannot be negative').max(365, 'Days due cannot exceed 365'),
+  isDefault: z.boolean(kind('isDefault must be true or false')),
+  isActive: z.boolean(kind('isActive must be true or false')),
 };
 const createSchema = z.object({ name: fields.name, daysDue: fields.daysDue, isDefault: fields.isDefault.default(false) });
 const updateSchema = z.object(fields).partial();
