@@ -137,6 +137,18 @@ export function seedCatalog(db: DB): { taxes: number; products: number; plans: n
   return made;
 }
 
+/** Immediate, 15 and 30 days, with 15 as the default unless the admin has already chosen one. */
+export function seedPaymentTerms(db: DB): void {
+  for (const t of [
+    { name: 'Immediate payment', days: 0 },
+    { name: 'Net 15', days: 15 },
+    { name: 'Net 30', days: 30 },
+  ]) {
+    run(db, 'INSERT OR IGNORE INTO payment_terms (name, days_due, is_demo) VALUES (?, ?, 1)', t.name, t.days);
+  }
+  run(db, `UPDATE payment_terms SET is_default = 1 WHERE name = 'Net 15' AND NOT EXISTS (SELECT 1 FROM payment_terms WHERE is_default = 1)`);
+}
+
 const PORTAL_CUSTOMER_EMAIL = 'customer@brightloop.example';
 
 /**
@@ -148,14 +160,7 @@ export async function seedSubscriptions(db: DB, bcryptCost: number): Promise<{ c
   const made = { customers: 0, templates: 0, subscriptions: 0 };
   const idOf = (table: string, name: string) => get<{ id: number }>(db, `SELECT id FROM ${table} WHERE name = ?`, name)?.id ?? null;
 
-  for (const t of [
-    { name: 'Immediate payment', days: 0 },
-    { name: 'Net 15', days: 15 },
-    { name: 'Net 30', days: 30 },
-  ]) {
-    run(db, 'INSERT OR IGNORE INTO payment_terms (name, days_due, is_demo) VALUES (?, ?, 1)', t.name, t.days);
-  }
-  run(db, `UPDATE payment_terms SET is_default = 1 WHERE name = 'Net 15' AND NOT EXISTS (SELECT 1 FROM payment_terms WHERE is_default = 1)`);
+  seedPaymentTerms(db);
 
   const customers = [
     ['Maple Street Bakery', 'Priya Nair', 'accounts@maplestreet.example'],

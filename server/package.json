@@ -9,7 +9,9 @@
     "start": "tsx src/index.ts",
     "seed": "tsx src/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed:load": "tsx src/seedLoad.ts",
+    "bench": "tsx src/bench.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

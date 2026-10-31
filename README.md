@@ -3,9 +3,9 @@
 A subscription management system for Brightloop Software: products and plans, quotations,
 subscriptions, recurring invoices, payments and revenue reporting in one place.
 
-> **Status: Stage 5 of 7 - accounts, catalog and pricing, quotations, the subscription lifecycle, recurring billing
-> and payments.** The customer portal polish and the finance dashboard land in later stages; this README is updated
-> as each one ships.
+> **Status: Stage 6 of 7 - accounts, catalog and pricing, quotations, the subscription lifecycle, recurring billing,
+> payments, the customer portal home and the live finance dashboard.** Final polish, end-to-end tests and lint land
+> in the last stage; this README is updated as each one ships.
 
 ## What works today
 
@@ -71,6 +71,24 @@ subscriptions, recurring invoices, payments and revenue reporting in one place.
     *Record payment* for each. The **Payments** list filters by method, date, customer or reference and totals what
     the filter adds up to.
 
+- **Finance dashboard (admin and staff):** the home screen for the team, worked out from the database on every
+  request, never cached or hard-coded.
+  - A **period picker** (last 30 days, this or last month, 90 or 180 days, year to date, or any custom range of up
+    to three years) drives every figure on the page. Impossible ranges are explained, not silently ignored.
+  - Tiles: active subscriptions, **recurring revenue** (MRR, with ARR beneath it), collected in the period, still
+    owed, and overdue. *Recurring revenue* is every active subscription's list price per period before tax and
+    discount, converted to a month (weekly x 52/12, yearly / 12, daily x 365/12). Paused and closed ones are not
+    counted. The tile says so.
+  - **Needs attention** chips link straight to the work: subscriptions due for billing, billing failures, draft
+    invoices, subscriptions expiring soon, expired quotations.
+  - A chart of invoiced against collected (per day for ranges up to 45 days, per month beyond), a subscription
+    status mix, and tabbed lists of subscriptions, invoices and payments that filter and page on the server.
+  - It **refreshes itself** every 15 seconds and when the tab regains focus, and shows when it was last updated.
+    Record a payment or run billing in another window and the tiles move without a reload.
+- **Customer portal home:** a customer sees where they stand: what they owe, what is overdue, the next invoice due
+  (or "all paid up"), their subscriptions, recent invoices and recent payments. Everything is scoped on the server
+  from the signed-in account, so there is no customer id to tamper with. It also refreshes on its own.
+
 ### Billing rules worth knowing
 
 - Billed **in advance**, one invoice per period, on or after the period's start date. Nothing is pro-rated: a final
@@ -126,10 +144,28 @@ The seed command refuses to run when `NODE_ENV=production`.
 | ------------------- | ---------------------------------------------------- |
 | `npm run dev`       | API and web app with reload                          |
 | `npm run seed`      | Create demo records (idempotent)                     |
+| `npm run seed:load -w server -- --subscriptions=5000 --db=<file>` | Generate a large demo dataset in its own database file (see *Performance*) |
+| `npm run bench -w server -- --db=<file>` | Time every API call a page makes against that file |
 | `npm test`          | Server test suite (Vitest + Supertest, in-memory DB) |
 | `npm run typecheck` | Type-check server and client                         |
 | `npm run build`     | Production build of the web app                      |
 | `npm start`         | Build the web app, then serve everything from :4000  |
+
+### Performance at scale
+
+`seed:load` builds a throwaway database through the same service code the API uses (5,000 subscriptions by
+default, with their invoices and payments), and `bench` starts the real application against it and times every call
+behind every screen, as staff and as the customer with the most subscriptions. It exits with an error if any call's
+slowest run goes over a budget (2 seconds by default).
+
+```bash
+npm run seed:load -w server -- --subscriptions=5000 --db=./load.db
+npm run bench -w server -- --db=./load.db --runs=7 --budget=2000
+```
+
+On a development laptop, against 5,000 subscriptions, 11,312 invoices and 9,293 payments, the slowest call (the
+dashboard) took about 100 ms and every list, search, detail and portal call finished in under 50 ms. `seed:load`
+refuses to run when `NODE_ENV=production`.
 
 ## Configuration
 

@@ -24,7 +24,7 @@ interface NavGroup {
 }
 
 const NAV: NavGroup[] = [
-  { items: [{ to: '/', label: 'Overview', icon: LayoutDashboard, roles: ['admin', 'staff', 'customer'], end: true }] },
+  { items: [{ to: '/', label: 'Overview', icon: LayoutDashboard, roles: ['admin', 'staff', 'customer'], end: true, labelFor: { admin: 'Dashboard', staff: 'Dashboard' } }] },
   {
     label: 'Sales',
     items: [
