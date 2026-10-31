@@ -111,6 +111,38 @@ accepts and returns plain decimals with at most 2 decimal places and rejects any
 3. Tax is charged on each line's discounted amount and rounded half up *per line*.
 4. Totals are plain sums of the lines, so an invoice always equals the sum of its lines.
 
+## Performance
+
+The target is every page under 2 seconds with thousands of subscriptions. It was measured, not assumed:
+
+```bash
+npm run seed:load -w server -- --subscriptions=5000   # writes server/data/load.db (git-ignored)
+npm run bench -w server -- --runs=7 --budget=2000     # add --db=<file> to use another database
+```
+
+`seed:load` refuses to run when `NODE_ENV=production`, and without `--db` it never touches the development database.
+
+- **Data:** a realistic database built through the same service code the API uses: 5,000 subscriptions across all
+  six plans and every lifecycle state, 2,000 customers, 11,312 invoices, 9,293 payments (some partial, some overdue)
+  and 30,260 history events. One customer holds 200 subscriptions, to check the portal at its heaviest. Generation
+  is seeded, so the same size gives the same data.
+- **API, `bench`:** starts the real application against that file and times 38 calls behind the screens (dashboard,
+  every list with filters, search, paging, detail pages, receivables, billing, the customer portal), as staff and as
+  the busiest customer, 7 runs each. It exits with an error if any call's slowest run is over the budget. Slowest
+  call: the dashboard over six months, **100-145 ms** across runs; the median of every other call is 10-31 ms. About
+  15 ms of each figure is the benchmark's own per-request cost, so treat the small numbers as a floor.
+- **Browser, real Edge, headless:** 18 pages from the start of navigation until the page's real content (its table or
+  chart) is on screen, 5 loads each, in several complete passes. Page medians were **370-530 ms**; the slowest single
+  load in any complete pass was **671 ms**. Staff dashboard: about 530 ms.
+- **What this does not show:** the browser and the server ran on the same laptop, so there was no network latency; the
+  database was warm and on a local disk; one user at a time. A remote user adds their own round-trip time, and a
+  database many times this size would need new measurements.
+- **How it stays fast:** every list is paged and filtered in SQL, never in memory; the dashboard totals are
+  aggregate queries computed in SQL; migration `006_dashboard` adds the indexes the dashboard and customer lists lean on; and the
+  database runs with `synchronous = NORMAL` under WAL, which keeps commits durable against an application crash but
+  can lose the last moments of writes if the operating system itself crashes. That is the usual WAL trade-off.
+  `npm run bench` exits with an error if any call exceeds the budget, so a regression is visible.
+
 ## Requirements
 
 - Node.js **22.13 or newer** (developed on 24). The database is SQLite through Node's built-in
@@ -144,28 +176,12 @@ The seed command refuses to run when `NODE_ENV=production`.
 | ------------------- | ---------------------------------------------------- |
 | `npm run dev`       | API and web app with reload                          |
 | `npm run seed`      | Create demo records (idempotent)                     |
-| `npm run seed:load -w server -- --subscriptions=5000 --db=<file>` | Generate a large demo dataset in its own database file (see *Performance*) |
-| `npm run bench -w server -- --db=<file>` | Time every API call a page makes against that file |
+| `npm run seed:load -w server -- --subscriptions=5000` | Generate a large demo dataset in `server/data/load.db`, never the development database (see *Performance*) |
+| `npm run bench -w server` | Time every API call the screens make against `load.db` (`--db=<file>` to choose another) |
 | `npm test`          | Server test suite (Vitest + Supertest, in-memory DB) |
 | `npm run typecheck` | Type-check server and client                         |
 | `npm run build`     | Production build of the web app                      |
 | `npm start`         | Build the web app, then serve everything from :4000  |
-
-### Performance at scale
-
-`seed:load` builds a throwaway database through the same service code the API uses (5,000 subscriptions by
-default, with their invoices and payments), and `bench` starts the real application against it and times every call
-behind every screen, as staff and as the customer with the most subscriptions. It exits with an error if any call's
-slowest run goes over a budget (2 seconds by default).
-
-```bash
-npm run seed:load -w server -- --subscriptions=5000 --db=./load.db
-npm run bench -w server -- --db=./load.db --runs=7 --budget=2000
-```
-
-On a development laptop, against 5,000 subscriptions, 11,312 invoices and 9,293 payments, the slowest call (the
-dashboard) took about 100 ms and every list, search, detail and portal call finished in under 50 ms. `seed:load`
-refuses to run when `NODE_ENV=production`.
 
 ## Configuration
 
