@@ -1,0 +1,103 @@
+/* ---------- Invoice document ---------- */
+.doc {
+  display: grid;
+  gap: 24px;
+}
+.doc__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.doc__title {
+  text-align: right;
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+.doc__title h2 {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+.doc__kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+.doc__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+.doc__label {
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+@media (max-width: 560px) {
+  .doc__title {
+    text-align: left;
+    justify-items: start;
+  }
+}
+
+/* ---------- Print page ---------- */
+.print-page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+}
+.print-page .doc {
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.print-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.print-foot {
+  margin-top: 16px;
+  text-align: center;
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body {
+    background: #fff;
+    font-size: 12px;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-page {
+    max-width: none;
+    padding: 0;
+  }
+  .print-page .doc {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .hide-sm {
+    display: table-cell !important;
+  }
+  .show-sm {
+    display: none !important;
+  }
+  .table tbody tr:hover {
+    background: none;
+  }
+}

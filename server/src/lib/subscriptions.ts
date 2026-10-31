@@ -12,6 +12,7 @@ import { HttpError, invalidField } from './http.js';
 import { type Action, type Actor, type Status, availableActions, checkTransition } from './lifecycle.js';
 import { bpToPercent, fromMinor, today } from './money.js';
 import { type LineInput, chooseBestDiscount, priceLines } from './pricing.js';
+import { countDue, periodStart } from './schedule.js';
 
 /**
  * Subscription business rules in one place. The routes validate input and permissions, then call
@@ -31,6 +32,8 @@ export interface SubRow {
   expiry_date: string;
   quote_valid_until: string | null;
   next_billing_date: string | null;
+  next_period: number;
+  paused_at: string | null;
   closed_at: string | null;
   close_reason: string | null;
   notes: string | null;
@@ -70,7 +73,7 @@ export function nextNumber(db: DB, sequence: string, prefix: string): string {
   return `${prefix}-${String(row.last_value).padStart(5, '0')}`;
 }
 
-function logEvent(db: DB, subId: number, action: string, from: Status | null, to: Status, actorId: number | null, note?: string | null) {
+export function logEvent(db: DB, subId: number, action: string, from: Status | null, to: Status, actorId: number | null, note?: string | null) {
   run(
     db,
     'INSERT INTO subscription_events (subscription_id, action, from_status, to_status, actor_id, note) VALUES (?, ?, ?, ?, ?, ?)',
@@ -281,6 +284,14 @@ export interface ActorInfo {
   userId: number | null;
 }
 
+/** Pausing or closing would leave an invoice that is already due unissued, so it is refused until billing has run. */
+function refuseWhileInvoicesDue(sub: SubRow, schedule: { startDate: string; expiryDate: string; period: PlanRow['billing_period'] }, upTo: string, verb: string) {
+  const due = countDue(schedule, sub.next_period, upTo);
+  if (due > 0) {
+    throw new HttpError(409, 'billing_due', `${due} invoice${due === 1 ? ' is' : 's are'} due for ${sub.number}. Run billing first, then it can be ${verb}.`);
+  }
+}
+
 export function applyAction(db: DB, id: number, action: Action, actor: ActorInfo, note?: string | null): SubRow {
   return transaction(db, () => {
     const sub = getSubscription(db, id);
@@ -295,7 +306,8 @@ export function applyAction(db: DB, id: number, action: Action, actor: ActorInfo
 
     const date = today();
     let eventNote = note ?? null;
-    const set: Record<string, string | null> = { status: to };
+    const set: Record<string, string | number | null> = { status: to };
+    const schedule = { startDate: sub.start_date, expiryDate: sub.expiry_date, period: plan.billing_period };
 
     switch (action) {
       case 'send_quote': {
@@ -317,9 +329,31 @@ export function applyAction(db: DB, id: number, action: Action, actor: ActorInfo
         break;
       case 'activate':
         if (sub.expiry_date < date) throw new HttpError(409, 'already_expired', `The expiry date (${sub.expiry_date}) has passed, so this cannot be activated.`);
+        set.next_period = 0;
         set.next_billing_date = sub.start_date;
         break;
+      case 'pause':
+        // Invoices that are already due belong to the time before the pause, so they are issued first.
+        refuseWhileInvoicesDue(sub, schedule, date, 'paused');
+        set.paused_at = date;
+        break;
+      case 'resume': {
+        // Billing restarts at the next period start. Periods that began while it was paused are skipped on
+        // purpose, and the history says how many, so nothing disappears silently.
+        let k = sub.next_period;
+        let skipped = 0;
+        while (sub.paused_at && periodStart(schedule, k) > sub.paused_at && periodStart(schedule, k) < date && skipped < 1000) {
+          k += 1;
+          skipped += 1;
+        }
+        set.next_period = k;
+        set.next_billing_date = periodStart(schedule, k);
+        set.paused_at = null;
+        if (skipped > 0) eventNote = `Billing resumes on ${set.next_billing_date}; ${skipped} billing period${skipped === 1 ? '' : 's'} that began while paused ${skipped === 1 ? 'was' : 'were'} not billed${note ? `. ${note}` : ''}`;
+        break;
+      }
       case 'close':
+        refuseWhileInvoicesDue(sub, schedule, sub.status === 'paused' ? (sub.paused_at ?? date) : date, 'closed');
         set.closed_at = new Date().toISOString();
         set.close_reason = 'closed_early';
         break;
@@ -335,16 +369,13 @@ export function applyAction(db: DB, id: number, action: Action, actor: ActorInfo
         eventNote = `Expiry extended from ${sub.expiry_date} to ${newExpiry}${note ? `. ${note}` : ''}`;
         break;
       }
-      case 'pause':
-      case 'resume':
-        break;
     }
 
     const columns = Object.keys(set);
     run(
       db,
       `UPDATE subscriptions SET ${columns.map((c) => `${c} = ?`).join(', ')}, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`,
-      ...columns.map((c) => set[c] as string | null),
+      ...columns.map((c) => set[c] as string | number | null),
       id,
     );
     logEvent(db, id, action, sub.status, to, actor.userId, eventNote);
@@ -354,13 +385,15 @@ export function applyAction(db: DB, id: number, action: Action, actor: ActorInfo
 
 /**
  * Closes active or paused subscriptions whose plan closes on its own and whose expiry date has
- * passed. Cheap and idempotent, so it runs on a timer and before any read that must be current.
+ * passed. An active subscription with periods still to invoice waits until billing has issued them, so
+ * closing never drops revenue. Cheap and idempotent, so it runs on a timer and before reads that must be current.
  */
 export function sweepExpired(db: DB, date = today()): number {
   const due = all<{ id: number; status: Status; expiry_date: string }>(
     db,
     `SELECT s.id, s.status, s.expiry_date FROM subscriptions s JOIN plans p ON p.id = s.plan_id
-      WHERE s.status IN ('active', 'paused') AND s.expiry_date < ? AND p.auto_close = 1`,
+      WHERE s.status IN ('active', 'paused') AND s.expiry_date < ? AND p.auto_close = 1
+        AND (s.status = 'paused' OR s.next_billing_date IS NULL OR s.next_billing_date >= s.expiry_date)`,
     date,
   );
   if (due.length === 0) return 0;
@@ -466,6 +499,12 @@ export function presentDetail(db: DB, row: SubRow, actor: Actor, viewerUserId: n
        FROM subscription_events e LEFT JOIN users u ON u.id = e.actor_id WHERE e.subscription_id = ? ORDER BY e.id`,
     row.id,
   );
+  const invoices = all<{ id: number; number: string; status: string; period_start: string; period_end: string; due_date: string; total_minor: number; paid_minor: number }>(
+    db,
+    `SELECT id, number, status, period_start, period_end, due_date, total_minor, paid_minor FROM invoices
+      WHERE subscription_id = ? ${actor === 'staff' ? '' : `AND status IN ('confirmed', 'paid')`} ORDER BY period_index DESC LIMIT 12`,
+    row.id,
+  );
   const customer = get<{ id: number; name: string; email: string; company: string | null; phone: string | null; address: string | null }>(
     db,
     'SELECT id, name, email, company, phone, address FROM customers WHERE id = ?',
@@ -513,6 +552,16 @@ export function presentDetail(db: DB, row: SubRow, actor: Actor, viewerUserId: n
       total: fromMinor(priced.totalMinor),
     },
     estimatedDiscount: applied,
+    invoices: invoices.map((i) => ({
+      id: i.id,
+      number: i.number,
+      status: i.status,
+      periodStart: i.period_start,
+      periodEnd: i.period_end,
+      dueDate: i.due_date,
+      total: fromMinor(i.total_minor),
+      paid: fromMinor(i.paid_minor),
+    })),
     events: events.map((e) => ({
       id: e.id,
       action: e.action,

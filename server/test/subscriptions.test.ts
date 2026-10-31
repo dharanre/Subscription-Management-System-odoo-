@@ -58,6 +58,12 @@ const act = async (agent: Agent, id: number, action: string, status = 200, body:
 const toActive = async (id: number) => {
   for (const a of ['send_quote', 'confirm', 'activate']) await act(staff, id, a);
 };
+/** Issues the invoices that are due. A subscription must be billed up to date before it is paused or closed. */
+const bill = async () => {
+  const res = await admin.post('/api/billing/run').send({ confirm: true });
+  expect(res.status, JSON.stringify(res.body)).toBe(200);
+  return res.body.run;
+};
 
 describe('creating a subscription', () => {
   it('numbers each one uniquely and prices the lines from the catalog', async () => {
@@ -244,6 +250,7 @@ describe('subscription lifecycle', () => {
   it('pauses and resumes where the plan allows it, and not where it does not', async () => {
     const a = await create();
     await toActive(a.id);
+    await bill();
     expect((await act(staff, a.id, 'pause')).subscription.status).toBe('paused');
     expect((await act(staff, a.id, 'resume')).subscription.status).toBe('active');
 
@@ -256,6 +263,7 @@ describe('subscription lifecycle', () => {
   it('closes early where the plan allows it', async () => {
     const { id } = await create();
     await toActive(id);
+    await bill();
     const closed = (await act(staff, id, 'close', 200, { note: 'Moved to a competitor' })).subscription;
     expect(closed).toMatchObject({ status: 'closed', closeReason: 'closed_early' });
     expect(closed.closedAt).toBeTruthy();
@@ -361,6 +369,7 @@ describe('who can do what', () => {
     // activating is a staff decision
     await act(alice, mine.id, 'activate', 403);
     await act(staff, mine.id, 'activate');
+    await bill();
     expect((await act(alice, mine.id, 'pause')).subscription.status).toBe('paused');
     expect((await act(alice, mine.id, 'resume')).subscription.status).toBe('active');
     expect((await act(alice, mine.id, 'renew')).subscription.status).toBe('active');
