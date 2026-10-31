@@ -10,3 +10,6 @@ server/data/
 screenshots/
 .DS_Store
 Thumbs.db
+e2e/.data/
+playwright-report/
+test-results/
