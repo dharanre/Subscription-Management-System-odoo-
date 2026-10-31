@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { PublicOnly, RequireAuth } from './auth';
 import { AppShell } from './layout/AppShell';
 import { CalculatorPage } from './pages/Calculator';
+import { CustomersPage } from './pages/Customers';
 import { DevMailboxPage } from './pages/DevMailbox';
 import { DiscountsPage } from './pages/Discounts';
 import { LoginPage } from './pages/Login';
@@ -10,8 +11,12 @@ import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordReset';
 import { PlansPage } from './pages/Plans';
 import { ProductsPage } from './pages/Products';
 import { SignupPage } from './pages/Signup';
+import { SubscriptionDetailPage } from './pages/SubscriptionDetail';
+import { SubscriptionFormPage } from './pages/SubscriptionForm';
+import { SubscriptionsPage } from './pages/Subscriptions';
 import { TaxesPage } from './pages/Taxes';
 import { TeamPage } from './pages/Team';
+import { TemplatesPage } from './pages/Templates';
 
 export function App() {
   return (
@@ -23,6 +28,13 @@ export function App() {
 
       <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route index element={<OverviewPage />} />
+
+        <Route path="subscriptions" element={<SubscriptionsPage />} />
+        <Route path="subscriptions/new" element={<RequireAuth roles={['admin', 'staff']}><SubscriptionFormPage /></RequireAuth>} />
+        <Route path="subscriptions/:id" element={<SubscriptionDetailPage />} />
+        <Route path="subscriptions/:id/edit" element={<RequireAuth roles={['admin', 'staff']}><SubscriptionFormPage /></RequireAuth>} />
+        <Route path="customers" element={<RequireAuth roles={['admin', 'staff']}><CustomersPage /></RequireAuth>} />
+        <Route path="templates" element={<RequireAuth roles={['admin', 'staff']}><TemplatesPage /></RequireAuth>} />
 
         <Route path="products" element={<RequireAuth roles={['admin', 'staff']}><ProductsPage /></RequireAuth>} />
         <Route path="plans" element={<RequireAuth roles={['admin', 'staff']}><PlansPage /></RequireAuth>} />

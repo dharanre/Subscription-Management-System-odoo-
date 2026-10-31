@@ -8,12 +8,16 @@ import { HttpError, notFound } from './lib/http.js';
 import { DevMailbox, type Mailer } from './lib/mailer.js';
 import { loadSession, requireAuth, sameOriginWrites } from './middleware/auth.js';
 import { authRouter } from './routes/auth.js';
+import { customersRouter } from './routes/customers.js';
 import { devRouter } from './routes/dev.js';
 import { discountsRouter } from './routes/discounts.js';
+import { paymentTermsRouter } from './routes/paymentTerms.js';
 import { plansRouter } from './routes/plans.js';
 import { pricingRouter } from './routes/pricing.js';
 import { productsRouter } from './routes/products.js';
+import { subscriptionsRouter } from './routes/subscriptions.js';
 import { taxesRouter } from './routes/taxes.js';
+import { templatesRouter } from './routes/templates.js';
 import { usersRouter } from './routes/users.js';
 
 export interface AppDeps {
@@ -46,6 +50,10 @@ export function createApp({ config, db, mailer }: AppDeps): Express {
   api.use('/taxes', requireAuth, taxesRouter(db));
   api.use('/discounts', requireAuth, discountsRouter(db));
   api.use('/pricing', requireAuth, pricingRouter(db));
+  api.use('/customers', requireAuth, customersRouter(db));
+  api.use('/payment-terms', requireAuth, paymentTermsRouter(db));
+  api.use('/quotation-templates', requireAuth, templatesRouter(db));
+  api.use('/subscriptions', requireAuth, subscriptionsRouter(db));
   if (config.devMailbox && mailer instanceof DevMailbox) api.use('/dev', devRouter(mailer));
 
   api.use((_req, _res, next) => next(notFound('Endpoint')));
