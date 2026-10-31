@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { kind } from './http.js';
 
 /** Largest amount accepted anywhere, in major units. Keeps products of quantity x price far below 2^53. */
 export const MAX_MAJOR = 100_000_000;
@@ -16,7 +17,7 @@ export const fromMinor = (minor: number) => minor / 100;
 /** A money amount in major units with at most 2 decimals; parsed to integer minor units. */
 export const moneySchema = (label: string) =>
   z
-    .number({ required_error: `${label} is required`, invalid_type_error: `${label} must be a number` })
+    .number(kind(`${label} must be a number`, `${label} is required`))
     .finite(`${label} must be a number`)
     .min(0, `${label} cannot be negative`)
     .max(MAX_MAJOR, `${label} is too large`)
@@ -26,7 +27,7 @@ export const moneySchema = (label: string) =>
 /** A percentage 0-100 with at most 2 decimals; parsed to integer basis points. */
 export const percentSchema = (label: string) =>
   z
-    .number({ required_error: `${label} is required`, invalid_type_error: `${label} must be a number` })
+    .number(kind(`${label} must be a number`, `${label} is required`))
     .finite(`${label} must be a number`)
     .min(0, `${label} cannot be negative`)
     .max(100, `${label} cannot exceed 100`)
@@ -38,7 +39,7 @@ export const bpToPercent = (bp: number) => bp / 100;
 /** A calendar date 'YYYY-MM-DD' that really exists (rejects 2026-02-30). */
 export const dateSchema = (label: string) =>
   z
-    .string({ required_error: `${label} is required`, invalid_type_error: `${label} must be a date` })
+    .string(kind(`${label} must be a date`, `${label} is required`))
     .regex(/^\d{4}-\d{2}-\d{2}$/, `${label} must be a date (YYYY-MM-DD)`)
     .refine((s) => {
       const d = new Date(`${s}T00:00:00Z`);

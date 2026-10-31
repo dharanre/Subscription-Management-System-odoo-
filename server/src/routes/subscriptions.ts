@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { type DB, type Param, all, get } from '../db.js';
-import { HttpError, likePattern, notFound, pageOf, pagingSchema, parse, text } from '../lib/http.js';
+import { HttpError, likePattern, notFound, pageOf, pagingSchema, parse, text, kind } from '../lib/http.js';
 import { ACTIONS, STATUSES } from '../lib/lifecycle.js';
 import { dateSchema, today } from '../lib/money.js';
 import {
@@ -21,11 +21,11 @@ import {
 import { requireRole } from '../middleware/auth.js';
 
 const lineSchema = z.object({
-  productId: z.number({ required_error: 'Choose a product', invalid_type_error: 'Choose a product' }).int().positive('Choose a product'),
-  variantId: z.number({ invalid_type_error: 'Choose a valid option' }).int().positive().nullable().optional(),
-  quantity: z.number({ required_error: 'Quantity is required', invalid_type_error: 'Quantity must be a number' }).int('Quantity must be a whole number').min(1, 'Quantity must be at least 1').max(100_000, 'Quantity is too large'),
+  productId: z.number(kind('Choose a product', 'Choose a product')).int().positive('Choose a product'),
+  variantId: z.number(kind('Choose a valid option')).int().positive().nullable().optional(),
+  quantity: z.number(kind('Quantity must be a number', 'Quantity is required')).int('Quantity must be a whole number').min(1, 'Quantity must be at least 1').max(100_000, 'Quantity is too large'),
 });
-const id = (label: string) => z.number({ required_error: `Choose ${label}`, invalid_type_error: `Choose ${label}` }).int().positive(`Choose ${label}`);
+const id = (label: string) => z.number(kind(`Choose ${label}`, `Choose ${label}`)).int().positive(`Choose ${label}`);
 
 const fields = {
   customerId: id('a customer'),

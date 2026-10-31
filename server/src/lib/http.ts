@@ -43,11 +43,15 @@ export function parseAt<S extends z.ZodTypeAny>(field: string, schema: S, data: 
   return invalidField(field, result.error.issues[0]?.message ?? 'Invalid value');
 }
 
-/** Zod message helpers so missing fields read like sentences, not type errors. */
-export const text = (label: string) => ({
-  required_error: `${label} is required`,
-  invalid_type_error: `${label} must be text`,
+/**
+ * Zod message helpers so missing fields read like sentences, not type errors. `kind` is one message for a value of
+ * the wrong type and another for one that is missing altogether (zod's own wording is "Required" if none is given).
+ */
+export const kind = (invalid: string, required = 'Required') => ({
+  error: (issue: { input?: unknown }) => (issue.input === undefined ? required : invalid),
 });
+
+export const text = (label: string) => kind(`${label} must be text`, `${label} is required`);
 
 export const pagingSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

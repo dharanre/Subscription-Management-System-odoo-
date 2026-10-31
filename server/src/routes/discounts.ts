@@ -2,29 +2,29 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { type DB, type Param, all, get, isUniqueViolation, run, transaction } from '../db.js';
 import { type DiscountRow, loadDiscountProducts, toDiscount } from '../lib/catalog.js';
-import { conflict, invalidField, likePattern, notFound, pageOf, pagingSchema, parse, parseAt, text } from '../lib/http.js';
+import { conflict, invalidField, likePattern, notFound, pageOf, pagingSchema, parse, parseAt, text, kind } from '../lib/http.js';
 import { dateSchema, moneySchema, percentSchema, today } from '../lib/money.js';
 import { requireRole } from '../middleware/auth.js';
 
 const int = (label: string, min: number, max: number) =>
   z
-    .number({ invalid_type_error: `${label} must be a number` })
+    .number(kind(`${label} must be a number`))
     .int(`${label} must be a whole number`)
     .min(min, `${label} must be at least ${min}`)
     .max(max, `${label} is too large`);
 
 const discountFields = {
   name: z.string(text('Name')).trim().min(1, 'Name is required').max(120, 'Name is too long'),
-  kind: z.enum(['fixed', 'percent'], { errorMap: () => ({ message: 'Choose a fixed amount or a percentage' }) }),
-  value: z.number({ required_error: 'Value is required', invalid_type_error: 'Value must be a number' }),
-  scope: z.enum(['products', 'subscription'], { errorMap: () => ({ message: 'Choose specific products or the whole subscription' }) }),
-  productIds: z.array(z.number().int().positive(), { invalid_type_error: 'productIds must be a list' }).max(100, 'Too many products'),
+  kind: z.enum(['fixed', 'percent'], { error: 'Choose a fixed amount or a percentage' }),
+  value: z.number(kind('Value must be a number', 'Value is required')),
+  scope: z.enum(['products', 'subscription'], { error: 'Choose specific products or the whole subscription' }),
+  productIds: z.array(z.number().int().positive(), kind('productIds must be a list')).max(100, 'Too many products'),
   minPurchase: moneySchema('Minimum purchase'),
   minQuantity: int('Minimum quantity', 0, 1_000_000),
   startDate: dateSchema('Start date'),
   endDate: dateSchema('End date').nullable(),
   usageLimit: int('Usage limit', 1, 1_000_000).nullable(),
-  isActive: z.boolean({ invalid_type_error: 'isActive must be true or false' }),
+  isActive: z.boolean(kind('isActive must be true or false')),
 };
 // New discounts are always created switched on, so `isActive` is only accepted on update.
 const { isActive: _discountActive, ...discountCreateFields } = discountFields;
