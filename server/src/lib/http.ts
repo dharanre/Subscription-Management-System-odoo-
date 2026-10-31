@@ -31,6 +31,18 @@ export function parse<S extends z.ZodTypeAny>(schema: S, data: unknown): z.outpu
   throw new HttpError(422, 'validation_failed', 'Please correct the highlighted fields.', fields);
 }
 
+/** Throws a 422 pointing at one field; for checks that span several fields or need existing data. */
+export function invalidField(field: string, message: string): never {
+  throw new HttpError(422, 'validation_failed', 'Please correct the highlighted fields.', { [field]: message });
+}
+
+/** Validates one value and reports any failure against `field` rather than the request as a whole. */
+export function parseAt<S extends z.ZodTypeAny>(field: string, schema: S, data: unknown): z.output<S> {
+  const result = schema.safeParse(data);
+  if (result.success) return result.data;
+  return invalidField(field, result.error.issues[0]?.message ?? 'Invalid value');
+}
+
 /** Zod message helpers so missing fields read like sentences, not type errors. */
 export const text = (label: string) => ({
   required_error: `${label} is required`,
