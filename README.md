@@ -3,9 +3,9 @@
 A subscription management system for Brightloop Software: products and plans, quotations,
 subscriptions, recurring invoices, payments and revenue reporting in one place.
 
-> **Status: Stage 6 of 7 - accounts, catalog and pricing, quotations, the subscription lifecycle, recurring billing,
-> payments, the customer portal home and the live finance dashboard.** Final polish, end-to-end tests and lint land
-> in the last stage; this README is updated as each one ships.
+> **Status: Stage 7 of 7 - complete.** Accounts, catalog and pricing, quotations, the subscription lifecycle, recurring
+> billing, payments, the customer portal home and the live finance dashboard, now with lint, end-to-end browser tests
+> and continuous integration.
 
 ## What works today
 
@@ -179,9 +179,27 @@ The seed command refuses to run when `NODE_ENV=production`.
 | `npm run seed:load -w server -- --subscriptions=5000` | Generate a large demo dataset in `server/data/load.db`, never the development database (see *Performance*) |
 | `npm run bench -w server` | Time every API call the screens make against `load.db` (`--db=<file>` to choose another) |
 | `npm test`          | Server test suite (Vitest + Supertest, in-memory DB) |
-| `npm run typecheck` | Type-check server and client                         |
+| `npm run e2e`       | Build the app, then drive it in a real browser (see *Checks*) |
+| `npm run lint`      | ESLint over server, client and end-to-end tests      |
+| `npm run typecheck` | Type-check server, client and end-to-end tests       |
 | `npm run build`     | Production build of the web app                      |
 | `npm start`         | Build the web app, then serve everything from :4000  |
+
+### Checks
+
+`npm run lint`, `npm run typecheck`, `npm test` and `npm run e2e` all run on every push and pull request
+(GitHub Actions, `.github/workflows/ci.yml`).
+
+The end-to-end tests (`e2e/`, Playwright) use the production build in a real browser against the real API. Each run
+creates and seeds a brand-new database in `e2e/.data/` and serves it on port 4317 (`E2E_PORT` to change it), so
+nothing of yours is touched and a copy of the app you are running is never disturbed. They cover signing up, in and
+out; what each role can and cannot reach, including the server refusing a customer who bypasses the screens;
+one customer's whole journey (signs up, is sold a subscription, is billed, sees what they owe, is paid, and both the
+customer's overview and finance's dashboard follow); the dashboard's period, chart, links and live refresh; and every
+screen on a laptop and a phone, failing on any script error, refused API call or sideways scrolling.
+
+The first time, install a browser for Playwright with `npx playwright install chromium`, or use the Chrome you
+already have: `E2E_CHANNEL=chrome npm run e2e`.
 
 ## Configuration
 
@@ -191,9 +209,19 @@ The SQLite file lives in `server/data/` (git-ignored).
 Amounts are shown in `CURRENCY` (default `INR`, formatted with `LOCALE`, default `en-IN`). This only changes
 how numbers are displayed; stored amounts are plain numbers and are never converted.
 
+## Known issues
+
+- **Dependency advisories.** `npm audit` reports `zod` (memory use when validating very large lists). Its only fix is
+  the zod 4 major release, which changes validation in every route, so it is left for a deliberate upgrade. Exposure
+  here is small: every request body is capped at 100 kB and the lists the API accepts are limited to 5,000 items or
+  fewer. The other advisories are in development tools (Vitest, ESLint) that only ever run on this repository's own
+  code, never in the deployed app.
+- **No payment provider.** Payments are recorded by staff; nothing is ever charged (see *Billing rules*).
+
 ## Project layout
 
 ```
 server/   Express 5 API, SQLite migrations, tests
 client/   React + Vite web app
+e2e/      Playwright browser tests (config in playwright.config.ts)
 ```
