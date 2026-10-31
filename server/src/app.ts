@@ -9,6 +9,11 @@ import { DevMailbox, type Mailer } from './lib/mailer.js';
 import { loadSession, requireAuth, sameOriginWrites } from './middleware/auth.js';
 import { authRouter } from './routes/auth.js';
 import { devRouter } from './routes/dev.js';
+import { discountsRouter } from './routes/discounts.js';
+import { plansRouter } from './routes/plans.js';
+import { pricingRouter } from './routes/pricing.js';
+import { productsRouter } from './routes/products.js';
+import { taxesRouter } from './routes/taxes.js';
 import { usersRouter } from './routes/users.js';
 
 export interface AppDeps {
@@ -32,7 +37,15 @@ export function createApp({ config, db, mailer }: AppDeps): Express {
     res.json({ status: 'ok' });
   });
   api.use('/auth', authRouter(db, config, mailer));
+  api.get('/meta', requireAuth, (_req, res) => {
+    res.json({ currency: config.currency, locale: config.locale });
+  });
   api.use('/users', requireAuth, usersRouter(db, config));
+  api.use('/products', requireAuth, productsRouter(db));
+  api.use('/plans', requireAuth, plansRouter(db));
+  api.use('/taxes', requireAuth, taxesRouter(db));
+  api.use('/discounts', requireAuth, discountsRouter(db));
+  api.use('/pricing', requireAuth, pricingRouter(db));
   if (config.devMailbox && mailer instanceof DevMailbox) api.use('/dev', devRouter(mailer));
 
   api.use((_req, _res, next) => next(notFound('Endpoint')));
