@@ -43,7 +43,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const push = useCallback((tone: ToastItem['tone'], message: string) => {
     const id = Date.now() + Math.random();
-    setItems((xs) => [...xs, { id, tone, message }]);
+    // Keep the newest few so a quick run of actions does not bury the page under messages.
+    setItems((xs) => [...xs, { id, tone, message }].slice(-3));
     window.setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== id)), tone === 'error' ? 7000 : 4000);
   }, []);
   const api = useMemo<ToastApi>(() => ({ success: (m) => push('success', m), error: (m) => push('error', m) }), [push]);

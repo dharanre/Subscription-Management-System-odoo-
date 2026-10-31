@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { all, get, run } from '../src/db.js';
-import { seedAccounts, seedCatalog } from '../src/seed.js';
-import { ADMIN, buildTestApp, loginAs, STAFF } from './helpers.js';
+import { seedAccounts, seedCatalog, seedSubscriptions } from '../src/seed.js';
+import { ADMIN, STAFF, buildTestApp, loginAs } from './helpers.js';
 
 describe('demo seed', () => {
   it('is repeatable: a second run creates nothing and duplicates nothing', async () => {
@@ -61,5 +61,33 @@ describe('demo seed', () => {
 
     const expired = (await staff.get('/api/discounts?status=expired')).body.items as { name: string }[];
     expect(expired.map((d) => d.name)).toEqual(['Spring promotion (ended)']);
+  });
+
+  it('seeds customers, templates and subscriptions in every lifecycle state, and is repeatable', async () => {
+    const t = await buildTestApp();
+    seedCatalog(t.db);
+    expect(await seedSubscriptions(t.db, 4)).toEqual({ customers: 8, templates: 3, subscriptions: 11 });
+    expect(await seedSubscriptions(t.db, 4)).toEqual({ customers: 0, templates: 0, subscriptions: 0 });
+    expect(get<{ n: number }>(t.db, 'SELECT COUNT(*) AS n FROM subscriptions')!.n).toBe(11);
+
+    const staff = await loginAs(t, STAFF);
+    expect((await staff.get('/api/subscriptions/counts')).body.counts).toEqual({ draft: 1, quotation: 2, confirmed: 1, active: 3, paused: 1, closed: 3 });
+
+    const all = (await staff.get('/api/subscriptions?pageSize=50')).body.items as { customer: { company: string }; status: string; closeReason: string | null; quoteExpired: boolean }[];
+    expect(all.find((s) => s.customer.company === 'Blue Kite Learning')).toMatchObject({ status: 'closed', closeReason: 'expired' }); // closed itself at plan end
+    expect(all.filter((s) => s.quoteExpired)).toHaveLength(1);
+    expect(all.filter((s) => s.status === 'closed').map((s) => s.closeReason).sort()).toEqual(['cancelled', 'closed_early', 'expired']);
+  });
+
+  it('gives the demo portal customer exactly their own subscription', async () => {
+    const t = await buildTestApp();
+    seedCatalog(t.db);
+    await seedSubscriptions(t.db, 4);
+    const portal = await loginAs(t, 'customer@brightloop.example');
+    const mine = (await portal.get('/api/subscriptions')).body;
+    expect(mine.total).toBe(1);
+    expect(mine.items[0].customer.company).toBe('Maple Street Bakery');
+    const someoneElses = get<{ id: number }>(t.db, `SELECT s.id FROM subscriptions s JOIN customers c ON c.id = s.customer_id WHERE c.company = 'Harbor Light Dental'`)!.id;
+    expect((await portal.get(`/api/subscriptions/${someoneElses}`)).status).toBe(404);
   });
 });

@@ -2,7 +2,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
 import { type DB, get, migrate, openDb, run } from './db.js';
+import type { Action } from './lib/lifecycle.js';
 import { hashPassword } from './lib/password.js';
+import { applyAction, createSubscription, sweepExpired } from './lib/subscriptions.js';
 
 /**
  * Demo accounts for local use. These are fictional, flagged is_demo = 1 in the database, and use
@@ -131,6 +133,128 @@ export function seedCatalog(db: DB): { taxes: number; products: number; plans: n
   return made;
 }
 
+const PORTAL_CUSTOMER_EMAIL = 'customer@brightloop.example';
+
+/**
+ * Demo payment terms, customers (one with a portal login), quotation templates and subscriptions in every
+ * lifecycle state. Subscriptions are built with the same service code the API uses, so they are
+ * exactly what the API could have produced. Skipped entirely if demo subscriptions already exist.
+ */
+export async function seedSubscriptions(db: DB, bcryptCost: number): Promise<{ customers: number; templates: number; subscriptions: number }> {
+  const made = { customers: 0, templates: 0, subscriptions: 0 };
+  const idOf = (table: string, name: string) => get<{ id: number }>(db, `SELECT id FROM ${table} WHERE name = ?`, name)?.id ?? null;
+
+  for (const t of [
+    { name: 'Immediate payment', days: 0 },
+    { name: 'Net 15', days: 15 },
+    { name: 'Net 30', days: 30 },
+  ]) {
+    run(db, 'INSERT OR IGNORE INTO payment_terms (name, days_due, is_demo) VALUES (?, ?, 1)', t.name, t.days);
+  }
+  run(db, `UPDATE payment_terms SET is_default = 1 WHERE name = 'Net 15' AND NOT EXISTS (SELECT 1 FROM payment_terms WHERE is_default = 1)`);
+
+  const customers = [
+    ['Maple Street Bakery', 'Priya Nair', 'accounts@maplestreet.example'],
+    ['Harbor Light Dental', 'Daniel Okoye', 'billing@harborlight.example'],
+    ['Pinecone Studio', 'Mei Tanaka', 'finance@pinecone.example'],
+    ['Riverbend Logistics', 'Carlos Mendes', 'ap@riverbend.example'],
+    ['Sunrise Pharmacy', 'Aisha Khan', 'office@sunrise.example'],
+    ['Orchid Textiles', 'Lakshmi Rao', 'purchasing@orchid.example'],
+    ['Granite Peak Consulting', 'Tom Eriksen', 'hello@granitepeak.example'],
+    ['Blue Kite Learning', 'Sofia Rossi', 'team@bluekite.example'],
+  ] as const;
+
+  // The first customer can sign in to the portal.
+  const passwordHash = await hashPassword(DEMO_PASSWORD, bcryptCost);
+  run(db, `INSERT OR IGNORE INTO users (email, password_hash, name, role, is_demo) VALUES (?, ?, ?, 'customer', 1)`, PORTAL_CUSTOMER_EMAIL, passwordHash, 'Priya Nair (demo)');
+  const portalUserId = get<{ id: number }>(db, 'SELECT id FROM users WHERE email = ?', PORTAL_CUSTOMER_EMAIL)!.id;
+
+  const customerId: Record<string, number> = {};
+  for (const [company, person, email] of customers) {
+    const isPortal = company === 'Maple Street Bakery';
+    const loginEmail = isPortal ? PORTAL_CUSTOMER_EMAIL : email;
+    made.customers += run(
+      db,
+      'INSERT INTO customers (user_id, name, email, company, is_demo) SELECT ?, ?, ?, ?, 1 WHERE NOT EXISTS (SELECT 1 FROM customers WHERE email = ?)',
+      isPortal ? portalUserId : null,
+      person,
+      loginEmail,
+      company,
+      loginEmail,
+    ).changes;
+    customerId[company] = get<{ id: number }>(db, 'SELECT id FROM customers WHERE email = ?', loginEmail)!.id;
+  }
+
+  const product = (name: string) => idOf('products', name)!;
+  const variant = (productName: string, value: string) => get<{ id: number }>(db, 'SELECT id FROM product_variants WHERE product_id = ? AND value = ?', product(productName), value)?.id ?? null;
+  const CRM = 'Brightloop CRM';
+  const HELPDESK = 'Brightloop Helpdesk';
+
+  const templates = [
+    { name: 'Small shop starter', plan: 'Starter Monthly', validity: 14, terms: 'Immediate payment', lines: [{ productId: product(CRM), variantId: null, quantity: 1 }, { productId: product('Extra storage (100 GB)'), variantId: null, quantity: 1 }] },
+    { name: 'Business team, yearly', plan: 'Business Yearly', validity: 30, terms: 'Net 30', lines: [{ productId: product(CRM), variantId: variant(CRM, 'Odoo'), quantity: 10 }, { productId: product('Priority support'), variantId: null, quantity: 5 }] },
+    { name: 'Enterprise rollout', plan: 'Enterprise Yearly', validity: 45, terms: 'Net 30', lines: [{ productId: product(CRM), variantId: variant(CRM, 'Odoo'), quantity: 25 }, { productId: product(HELPDESK), variantId: null, quantity: 25 }] },
+  ];
+  const templateId: Record<string, number> = {};
+  for (const t of templates) {
+    made.templates += run(db, 'INSERT OR IGNORE INTO quotation_templates (name, plan_id, validity_days, payment_terms_id, is_demo) VALUES (?, ?, ?, ?, 1)', t.name, idOf('plans', t.plan), t.validity, idOf('payment_terms', t.terms)).changes;
+    templateId[t.name] = idOf('quotation_templates', t.name)!;
+    if (get<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM quotation_template_lines WHERE template_id = ?', templateId[t.name]!)!.n === 0) {
+      t.lines.forEach((l, i) => run(db, 'INSERT INTO quotation_template_lines (template_id, position, product_id, variant_id, quantity) VALUES (?, ?, ?, ?, ?)', templateId[t.name]!, i, l.productId, l.variantId, l.quantity));
+    }
+  }
+
+  if (get<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM subscriptions WHERE is_demo = 1')!.n > 0) return made;
+
+  const admin = get<{ id: number }>(db, `SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1`)?.id ?? null;
+  const staff = { kind: 'staff' as const, userId: admin };
+  const plan = (name: string) => idOf('plans', name)!;
+  const plusDays = (n: number) => dayOffset(n);
+
+  interface Demo {
+    customer: string;
+    plan: string;
+    start: number;
+    expiry: number;
+    lines?: { productId: number; variantId?: number | null; quantity: number }[];
+    template?: string;
+    path: Action[];
+    after?: (id: number) => void;
+  }
+  const demos: Demo[] = [
+    { customer: 'Maple Street Bakery', plan: 'Starter Monthly', start: -3, expiry: 362, lines: [{ productId: product(CRM), quantity: 1 }, { productId: product('Extra storage (100 GB)'), quantity: 1 }], path: ['send_quote', 'confirm', 'activate'] },
+    { customer: 'Harbor Light Dental', plan: 'Business Monthly', start: -3, expiry: 362, lines: [{ productId: product(CRM), variantId: variant(CRM, 'Odoo'), quantity: 6 }, { productId: product(HELPDESK), quantity: 6 }], path: ['send_quote', 'confirm', 'activate'] },
+    { customer: 'Pinecone Studio', plan: 'Starter Monthly', start: -40, expiry: 325, lines: [{ productId: product(HELPDESK), quantity: 2 }], path: ['send_quote', 'confirm', 'activate', 'pause'] },
+    { customer: 'Riverbend Logistics', plan: 'Business Yearly', start: -100, expiry: 265, template: 'Business team, yearly', path: ['send_quote', 'confirm', 'activate'] },
+    { customer: 'Sunrise Pharmacy', plan: 'Business Monthly', start: 5, expiry: 370, lines: [{ productId: product(CRM), quantity: 5 }], path: ['send_quote', 'confirm'] },
+    { customer: 'Orchid Textiles', plan: 'Enterprise Yearly', start: 10, expiry: 375, template: 'Enterprise rollout', path: ['send_quote'] },
+    { customer: 'Granite Peak Consulting', plan: 'Starter Monthly', start: 0, expiry: 365, lines: [{ productId: product(HELPDESK), quantity: 1 }], path: [] },
+    { customer: 'Blue Kite Learning', plan: 'Weekly Trial', start: -20, expiry: 40, lines: [{ productId: product(HELPDESK), quantity: 1 }], path: ['send_quote', 'confirm', 'activate'], after: (id) => run(db, 'UPDATE subscriptions SET expiry_date = ? WHERE id = ?', plusDays(-2), id) },
+    { customer: 'Pinecone Studio', plan: 'Starter Monthly', start: -60, expiry: 305, lines: [{ productId: product(CRM), quantity: 1 }], path: ['send_quote', 'confirm', 'activate', 'close'] },
+    { customer: 'Granite Peak Consulting', plan: 'Business Monthly', start: 0, expiry: 365, lines: [{ productId: product(CRM), quantity: 5 }], path: ['send_quote', 'cancel'] },
+    { customer: 'Orchid Textiles', plan: 'Business Monthly', start: 2, expiry: 367, lines: [{ productId: product(HELPDESK), quantity: 5 }], path: ['send_quote'], after: (id) => run(db, 'UPDATE subscriptions SET quote_valid_until = ? WHERE id = ?', plusDays(-3), id) },
+  ];
+
+  for (const d of demos) {
+    const id = createSubscription(db, {
+      customerId: customerId[d.customer]!,
+      planId: plan(d.plan),
+      templateId: d.template ? templateId[d.template] : null,
+      startDate: plusDays(d.start),
+      expiryDate: plusDays(d.expiry),
+      lines: d.lines,
+      notes: 'Demo subscription',
+      createdBy: admin,
+      isDemo: true,
+    });
+    for (const action of d.path) applyAction(db, id, action, staff);
+    d.after?.(id);
+    made.subscriptions += 1;
+  }
+  sweepExpired(db);
+  return made;
+}
+
 async function main() {
   const config = loadConfig();
   if (config.nodeEnv === 'production') {
@@ -140,10 +264,12 @@ async function main() {
   migrate(db);
   const accounts = await seedAccounts(db, config.bcryptCost);
   const catalog = seedCatalog(db);
+  const sales = await seedSubscriptions(db, config.bcryptCost);
   db.close();
   console.log(`[seed] demo accounts created: ${accounts.created} (existing records left untouched)`);
   console.log(`[seed] demo catalog created: ${catalog.taxes} taxes, ${catalog.products} products, ${catalog.plans} plans, ${catalog.discounts} discounts`);
-  console.log(`[seed] sign in as admin@brightloop.example or staff@brightloop.example with password "${DEMO_PASSWORD}"`);
+  console.log(`[seed] demo sales data created: ${sales.customers} customers, ${sales.templates} templates, ${sales.subscriptions} subscriptions`);
+  console.log(`[seed] sign in as admin@, staff@ or customer@brightloop.example with password "${DEMO_PASSWORD}"`);
 }
 
 // Only run when executed directly (`npm run seed`), not when imported by tests.

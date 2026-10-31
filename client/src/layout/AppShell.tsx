@@ -1,4 +1,4 @@
-import { Calculator, CalendarClock, LayoutDashboard, LogOut, Mail, Menu, Package, Percent, Tag, Users, X } from 'lucide-react';
+import { Calculator, CalendarClock, FileStack, LayoutDashboard, LogOut, Mail, Menu, Package, Percent, Repeat, Tag, UserRound, Users, X } from 'lucide-react';
 import { type ComponentType, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { Role } from '../api';
@@ -15,6 +15,8 @@ interface NavItem {
   roles: Role[];
   end?: boolean;
   devOnly?: boolean;
+  /** Wording for a role that should see a different label for the same page. */
+  labelFor?: Partial<Record<Role, string>>;
 }
 interface NavGroup {
   label?: string;
@@ -23,6 +25,14 @@ interface NavGroup {
 
 const NAV: NavGroup[] = [
   { items: [{ to: '/', label: 'Overview', icon: LayoutDashboard, roles: ['admin', 'staff', 'customer'], end: true }] },
+  {
+    label: 'Sales',
+    items: [
+      { to: '/subscriptions', label: 'Subscriptions', icon: Repeat, roles: ['admin', 'staff', 'customer'], labelFor: { customer: 'My subscriptions' } },
+      { to: '/customers', label: 'Customers', icon: UserRound, roles: ['admin', 'staff'] },
+      { to: '/templates', label: 'Quotation templates', icon: FileStack, roles: ['admin', 'staff'] },
+    ],
+  },
   {
     label: 'Catalog',
     items: [
@@ -94,10 +104,10 @@ export function AppShell() {
           {groups.map((g, i) => (
             <div key={g.label ?? i} style={{ display: 'contents' }}>
               {g.label && <div className="nav__label">{g.label}</div>}
-              {g.items.map(({ to, label, icon: Icon, end }) => (
+              {g.items.map(({ to, label: defaultLabel, labelFor, icon: Icon, end }) => (
                 <NavLink key={to} to={to} end={end}>
                   <Icon size={19} />
-                  {label}
+                  {labelFor?.[user.role] ?? defaultLabel}
                 </NavLink>
               ))}
             </div>
