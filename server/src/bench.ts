@@ -1,4 +1,5 @@
 import type { AddressInfo } from 'node:net';
+import path from 'node:path';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { get, migrate, openDb } from './db.js';
@@ -14,7 +15,8 @@ import { DEMO_PASSWORD } from './seed.js';
  *
  *   npm run bench -w server -- --db=path/to/load.db --runs=7 --budget=2000
  *
- * Exits with an error if any call's slowest run is over the budget (milliseconds).
+ * Without --db it uses `load.db` beside the normal database (where `seed:load` writes by default), never the
+ * development database itself. Exits with an error if any call's slowest run is over the budget (milliseconds).
  */
 
 const args = Object.fromEntries(
@@ -26,7 +28,7 @@ const args = Object.fromEntries(
 const RUNS = Number(args.runs ?? 7);
 const BUDGET = Number(args.budget ?? 2000);
 const config = { ...loadConfig(), rateLimit: false, devMailbox: false };
-const db = openDb(args.db ?? config.dbPath);
+const db = openDb(args.db ?? path.join(path.dirname(config.dbPath), 'load.db'));
 migrate(db);
 
 const app = createApp({ config, db, mailer: new MemoryMailer() });
@@ -138,7 +140,7 @@ for (const [name, path] of staffChecks) staff.push(await measure(staffCookie, na
 table('Staff', staff);
 
 const portalUser = first<{ email: string }>(`SELECT email FROM users WHERE email = 'bigcustomer@brightloop.example'`) ?? first<{ email: string }>(`SELECT email FROM users WHERE role = 'customer' ORDER BY id LIMIT 1`);
-let portal: Result[] = [];
+const portal: Result[] = [];
 if (portalUser) {
   const cookie = await login(portalUser.email);
   for (const [name, path] of customerChecks) portal.push(await measure(cookie, name, path));
