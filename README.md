@@ -3,8 +3,8 @@
 A subscription management system for Brightloop Software: products and plans, quotations,
 subscriptions, recurring invoices, payments and revenue reporting in one place.
 
-> **Status: Stage 2 of 7 - accounts and roles, catalog and pricing.** Subscriptions, billing, payments and
-> the dashboard land in later stages; this README is updated as each one ships.
+> **Status: Stage 3 of 7 - accounts, catalog and pricing, quotations and the subscription lifecycle.** Recurring
+> billing, payments and the finance dashboard land in later stages; this README is updated as each one ships.
 
 ## What works today
 
@@ -26,6 +26,19 @@ subscriptions, recurring invoices, payments and revenue reporting in one place.
     (active, scheduled, expired, used up, switched off) is derived from dates and usage.
   - A **price calculator** that shows exactly how a total is made up, and why each discount does or does not
     qualify. It runs the same pricing engine that later prices quotations and invoices.
+- **Quotations and subscriptions:**
+  - Quotation templates (plan, product lines, payment terms, how many days a quotation stays valid). A sales
+    rep starts from one, or builds the quotation line by line, and sees the price update live.
+  - Every subscription gets its own number (`SUB-00001`), a customer, a plan, start and expiry dates, payment
+    terms and priced lines (product, quantity, unit price, tax, amount). Prices are a snapshot taken when the
+    line is saved, so a later catalog change never alters an existing quotation.
+  - Lifecycle **Draft -> Quotation -> Confirmed -> Active -> Closed**, enforced by the API (anything out of
+    order is refused with the reason). Where the plan allows it: pause and resume, close early, renew for
+    another term. Plans marked *close automatically* close themselves once their expiry date passes.
+  - A quotation expires after its validity period and can no longer be confirmed. Only drafts can be edited.
+  - A full history of who did what and when is kept on every subscription.
+  - Customers see only their own subscriptions in the portal and can confirm, pause, close early or renew them
+    where the plan permits. Anything else about another customer's record answers "not found".
 
 ### How prices are calculated
 
@@ -47,7 +60,7 @@ accepts and returns plain decimals with at most 2 decimal places and rejects any
 
 ```bash
 npm install
-npm run seed      # creates the demo admin/staff accounts (safe to re-run)
+npm run seed      # creates the demo accounts, catalog, customers and subscriptions (safe to re-run)
 npm run dev       # API on :4000, web app on http://localhost:5173
 ```
 
@@ -57,8 +70,10 @@ Demo accounts (local only, flagged as demo data in the database, password `Demo#
 | ----- | --------------------------- |
 | Admin | `admin@brightloop.example`  |
 | Staff | `staff@brightloop.example`  |
+| Customer (portal) | `customer@brightloop.example` |
 
-Create a customer by signing up in the app. To try password reset, use "Forgot password?" and open the
+The demo data includes subscriptions in every lifecycle state, including one that closed itself at plan end
+and one whose quotation has expired. You can also create a customer by signing up in the app. To try password reset, use "Forgot password?" and open the
 **Dev mailbox** (admin sidebar) or `http://localhost:5173/dev/mailbox`.
 
 The seed command refuses to run when `NODE_ENV=production`.

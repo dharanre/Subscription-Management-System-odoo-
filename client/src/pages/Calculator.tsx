@@ -5,6 +5,7 @@ import { useDebounced, usePageTitle, useQuery } from '../hooks';
 import { useMoney } from '../meta';
 import { type Discount, type Plan, type Preview, type Product, periodUnit } from '../types';
 import { Button } from '../ui/Button';
+import { BreakdownTable } from '../ui/Breakdown';
 import { Alert, Badge } from '../ui/Feedback';
 import { SelectField, TextField } from '../ui/Field';
 import { PageHeader } from '../ui/Layout';
@@ -134,36 +135,19 @@ export function CalculatorPage() {
           {error && Object.keys(error.fields).length > 0 && <div className="card__body"><Alert>Fix the highlighted fields to see the total.</Alert></div>}
           {preview && !error && (
             <>
-              <div className="table-wrap">
-                <table className="table table--compact">
-                  <thead>
-                    <tr><th>Line</th><th style={{ textAlign: 'right' }}>Subtotal</th><th style={{ textAlign: 'right' }}>Discount</th><th style={{ textAlign: 'right' }}>Tax</th><th style={{ textAlign: 'right' }}>Total</th></tr>
-                  </thead>
-                  <tbody>
-                    {preview.lines.map((l) => (
-                      <tr key={l.key}>
-                        <td>
-                          <div className="cell-main">{l.description}</div>
-                          <div className="cell-sub">
-                            {l.quantity} × {money(l.unitPrice)}{l.variantExtra > 0 && ` (${money(l.basePrice)} + ${money(l.variantExtra)} option)`} · {l.taxName ? `${l.taxName} ${l.taxRatePercent}%` : 'No tax'}
-                          </div>
-                        </td>
-                        <td className="num" style={{ textAlign: 'right' }}>{money(l.subtotal)}</td>
-                        <td className="num neg" style={{ textAlign: 'right' }}>{l.discount > 0 ? `−${money(l.discount)}` : '—'}</td>
-                        <td className="num" style={{ textAlign: 'right' }}>{money(l.tax)}</td>
-                        <td className="num" style={{ textAlign: 'right' }}>{money(l.total)}</td>
-                      </tr>
-                    ))}
-                    <tr className="total-row">
-                      <td>Order total</td>
-                      <td className="num" style={{ textAlign: 'right' }}>{money(preview.totals.subtotal)}</td>
-                      <td className="num neg" style={{ textAlign: 'right' }}>{preview.totals.discount > 0 ? `−${money(preview.totals.discount)}` : '—'}</td>
-                      <td className="num" style={{ textAlign: 'right' }}>{money(preview.totals.tax)}</td>
-                      <td className="num" style={{ textAlign: 'right' }}>{money(preview.totals.total)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <BreakdownTable
+                rows={preview.lines.map((l) => ({
+                  key: l.key,
+                  description: l.description,
+                  detail: `${l.quantity} × ${money(l.unitPrice)}${l.variantExtra > 0 ? ` (${money(l.basePrice)} + ${money(l.variantExtra)} option)` : ''} · ${l.taxName ? `${l.taxName} ${l.taxRatePercent}%` : 'No tax'}`,
+                  subtotal: l.subtotal,
+                  discount: l.discount,
+                  tax: l.tax,
+                  total: l.total,
+                }))}
+                totals={preview.totals}
+                totalLabel="Order total"
+              />
               <div className="card__body" style={{ display: 'grid', gap: 10, borderTop: '1px solid var(--line)' }}>
                 <h3>Discounts</h3>
                 {preview.discount.applied && <Alert tone="success"><strong>{preview.discount.applied.name}</strong> saves {money(preview.discount.applied.amount)}. It is taken off before tax.</Alert>}
