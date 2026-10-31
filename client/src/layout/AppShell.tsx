@@ -1,4 +1,4 @@
-import { Calculator, CalendarCheck, CalendarClock, FileStack, Receipt, LayoutDashboard, LogOut, Mail, Menu, Package, Percent, Repeat, Tag, UserRound, Users, X } from 'lucide-react';
+import { Calculator, CalendarCheck, CalendarClock, FileStack, Hourglass, Receipt, Wallet, LayoutDashboard, LogOut, Mail, Menu, Package, Percent, Repeat, Tag, UserRound, Users, X } from 'lucide-react';
 import { type ComponentType, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { Role } from '../api';
@@ -38,6 +38,8 @@ const NAV: NavGroup[] = [
     items: [
       { to: '/billing', label: 'Billing', icon: CalendarCheck, roles: ['admin', 'staff'] },
       { to: '/invoices', label: 'Invoices', icon: Receipt, roles: ['admin', 'staff', 'customer'], labelFor: { customer: 'My invoices' } },
+      { to: '/payments', label: 'Payments', icon: Wallet, roles: ['admin', 'staff'] },
+      { to: '/receivables', label: 'Receivables', icon: Hourglass, roles: ['admin', 'staff'] },
     ],
   },
   {

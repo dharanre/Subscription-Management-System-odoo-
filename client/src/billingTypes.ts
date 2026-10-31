@@ -46,6 +46,56 @@ export interface InvoiceEvent {
   at: string;
 }
 
+export type PaymentMethod = 'bank_transfer' | 'cash' | 'cheque' | 'card' | 'upi' | 'other';
+
+export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: 'bank_transfer', label: 'Bank transfer' },
+  { value: 'upi', label: 'UPI' },
+  { value: 'card', label: 'Card' },
+  { value: 'cheque', label: 'Cheque' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'other', label: 'Other' },
+];
+
+export interface Payment {
+  id: number;
+  invoiceId: number;
+  invoiceNumber: string | null;
+  customer: { id: number; name: string; company: string | null } | null;
+  amount: number;
+  method: PaymentMethod;
+  methodLabel: string;
+  paidOn: string;
+  reference: string | null;
+  note: string | null;
+  status: 'recorded' | 'voided';
+  voidedAt: string | null;
+  voidReason: string | null;
+  isDemo: boolean;
+}
+
+export interface PaymentsResponse {
+  items: Payment[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totals: { count: number; amount: number };
+}
+
+export interface AgingBucket {
+  key: 'current' | 'd1_30' | 'd31_60' | 'd61_90' | 'd90_plus';
+  label: string;
+  count: number;
+  amount: number;
+}
+
+export interface ReceivablesSummary {
+  asOf: string;
+  outstanding: { count: number; amount: number };
+  overdue: { count: number; amount: number; oldestDueDate: string | null; oldestDaysOverdue: number };
+  buckets: AgingBucket[];
+}
+
 export interface InvoiceDetail extends InvoiceSummary {
   customerDetails: { name: string; company: string | null; email: string; address: string | null };
   planName: string;
@@ -59,6 +109,8 @@ export interface InvoiceDetail extends InvoiceSummary {
   cancelReason: string | null;
   sentCount: number;
   events: InvoiceEvent[];
+  payments: Payment[];
+  canRecordPayment: boolean;
   actions: { action: InvoiceAction; label: string }[];
 }
 

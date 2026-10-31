@@ -97,11 +97,23 @@ describe('demo seed', () => {
     await seedSubscriptions(t.db, 4);
     const staff = await loginAs(t, STAFF);
 
-    // made by the real billing code and already confirmed, so the invoice list is not empty on day one
+    // made by the real billing code and issued, so the invoice list is not empty on day one
     const issued = all<{ status: string; is_demo: number; total_minor: number; paid_minor: number }>(t.db, 'SELECT status, is_demo, total_minor, paid_minor FROM invoices');
     expect(issued.length).toBeGreaterThanOrEqual(5);
-    expect(issued.every((i) => i.status === 'confirmed' && i.is_demo === 1 && i.paid_minor === 0)).toBe(true);
+    expect(issued.every((i) => i.is_demo === 1 && (i.status === 'confirmed' || i.status === 'paid'))).toBe(true);
     expect(all(t.db, 'SELECT subscription_id, period_index FROM invoices GROUP BY 1, 2 HAVING COUNT(*) > 1')).toHaveLength(0);
+
+    // with a payment history: some paid in full, some part-paid, some untouched, and some of those overdue
+    expect(issued.some((i) => i.status === 'paid' && i.paid_minor === i.total_minor)).toBe(true);
+    expect(issued.some((i) => i.status === 'confirmed' && i.paid_minor > 0 && i.paid_minor < i.total_minor)).toBe(true);
+    expect(issued.some((i) => i.status === 'confirmed' && i.paid_minor === 0)).toBe(true);
+    for (const inv of all<{ id: number; paid_minor: number }>(t.db, 'SELECT id, paid_minor FROM invoices')) {
+      const sum = get<{ s: number | null }>(t.db, `SELECT SUM(amount_minor) AS s FROM payments WHERE invoice_id = ? AND status = 'recorded'`, inv.id)!.s ?? 0;
+      expect(inv.paid_minor).toBe(sum);
+    }
+    const overdue = (await staff.get('/api/invoices?status=overdue&sort=due')).body.items as { daysOverdue: number }[];
+    expect(overdue.length).toBeGreaterThanOrEqual(2);
+    expect(overdue[0]!.daysOverdue).toBeGreaterThanOrEqual(overdue.at(-1)!.daysOverdue);
 
     // the three subscriptions that just started are waiting for billing day; the paused, closed and trial ones are not
     const due = (await staff.get('/api/billing/due')).body;
