@@ -118,6 +118,16 @@ describe('login and sessions', () => {
     expect((await proxied('http://127.0.0.1:5173')).status).toBe(200);
     expect((await proxied('https://evil.example')).status).toBe(403);
   });
+
+  it('accepts a write whose Origin is the very host it was sent to, on any port, as when a dev server lands on 5174', async () => {
+    const sentTo = (host: string, origin: string) =>
+      request(t.app).post('/api/auth/login').set('Host', host).set('Origin', origin).send({ email: ADMIN, password: 'Demo#Pass2026' });
+    expect((await sentTo('localhost:5174', 'http://localhost:5174')).status).toBe(200);
+    expect((await sentTo('192.168.1.20:5173', 'http://192.168.1.20:5173')).status).toBe(200);
+    // but an origin that is not the host it was sent to is still refused, which is what protects the session cookie
+    expect((await sentTo('localhost:5174', 'http://localhost:5173.evil.example')).status).toBe(403);
+    expect((await sentTo('localhost:4000', 'http://localhost:5174')).status).toBe(403);
+  });
 });
 
 describe('role-based access to staff management', () => {
